@@ -1,0 +1,56 @@
+{
+    "description": "An abstract Docker Volume plugin for creating volume drivers",
+    "documentation": "https://docs.docker.com/engine/extend/config/",
+    "workdir": "/",
+    "entrypoint": [
+        "/bin/docker-plugin-volume-abstract"
+    ],
+    "env": [
+        {
+            "name": "NETWORK",
+            "settable": [ 
+                "value" 
+            ],
+            "description": "Name or ID of the docker network where the storage server can be found."
+        },
+        {
+          "name": "DEBUG",
+          "settable": [
+            "value"
+          ],
+          "value": "false",
+          "description": "Enable debug output."
+        }
+    ],
+    "interface": {
+        "socket": "/volume.sock",
+        "types": [
+            "docker.volumedriver/2.0"
+        ]
+    },
+    "mounts": [
+        {
+            "destination": "/run/docker.sock",
+            "options": [
+                "rbind"
+            ],
+            "name": "docker.sock",
+            "source": "/run/docker.sock",
+            "settable": [
+                "source"
+            ],
+            "type": "bind"
+        }
+    ],
+    "linux": {
+        "capabilities": [
+            "CAP_SYS_ADMIN"
+        ],
+        "devices": [
+            {
+                "path": "/dev/fuse"
+            }
+        ]
+    },
+    "propagatedMount": "/mnt"
+}
