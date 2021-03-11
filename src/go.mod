@@ -1,4 +1,4 @@
-module github.com/ggpwnkthx/docker-plugin-volume-abstract/src
+module github.com/ggpwnkthx/docker-plugin-volume-seaweedfs/src
 
 go 1.16
 

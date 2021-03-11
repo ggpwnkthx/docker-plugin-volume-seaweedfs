@@ -76,7 +76,7 @@ func updateVolume(v *dockerVolume) error {
 		cmd := exec.Command("/usr/bin/weed", args...)
 		err := cmd.Run()
 		v.PID = cmd.Process.Pid
-		mountedVolumes = append(mountedVolumes, v)
+		mountedVolumes = append(mountedVolumes, *v)
 		if err != nil {
 			return err
 		}
