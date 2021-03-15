@@ -11,7 +11,7 @@ import (
 )
 
 // mostly swiped from https://github.com/vieux/docker-volume-sshfs/blob/master/main.go
-const socketAddress = "/run/docker/plugins/volume.sock"
+const socketAddress = "/run/docker/plugins/volumedriver.sock"
 const propagatedMount = "/mnt"
 
 // Error log helper
