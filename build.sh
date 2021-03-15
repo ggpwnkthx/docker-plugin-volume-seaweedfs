@@ -1,5 +1,5 @@
 #!/bin/sh
-PLUGIN_NAME=docker-plugin-volume-seaweedfs
+PLUGIN_NAME=ggpwnkthx/docker-plugin-volume-seaweedfs
 
 docker run -it --rm -v $(pwd):/src/app -w /src/app/src golang:alpine go build -o ../$PLUGIN_NAME
 
