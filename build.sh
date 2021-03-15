@@ -1,5 +1,6 @@
 #!/bin/sh
-PLUGIN_NAME=ggpwnkthx/docker-plugin-volume-seaweedfs
+SCOPE_USER=ggpwnkthx
+PLUGIN_NAME=docker-plugin-volume-seaweedfs
 
 docker run -it --rm -v $(pwd):/src/app -w /src/app/src golang:alpine go build -o ../$PLUGIN_NAME
 
@@ -9,4 +10,4 @@ mkdir -p plugin/rootfs
 docker export "$CONTAINER_ID" | tar -x -C plugin/rootfs
 docker rm -vf "$CONTAINER_ID"
 docker rmi $PLUGIN_NAME
-docker plugin create $PLUGIN_NAME ./plugin
+docker plugin create $SCOPE_USER/$PLUGIN_NAME ./plugin
