@@ -2,8 +2,6 @@
 SCOPE_USER=ggpwnkthx
 PLUGIN_NAME=docker-plugin-volume-seaweedfs
 
-docker run -it --rm -v $(pwd):/src/app -w /src/app/src golang:alpine go build -o ../$PLUGIN_NAME
-
 docker build -t $PLUGIN_NAME .
 CONTAINER_ID=$(docker create $PLUGIN_NAME true)
 mkdir -p plugin/rootfs
