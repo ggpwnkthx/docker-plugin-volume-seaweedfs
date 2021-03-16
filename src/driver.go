@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -70,25 +71,21 @@ func updateVolume(v *dockerVolume) error {
 				os.Mkdir(v.Mountpoint, 0755)
 			}
 		}
-		/*
-			var args []string
-			args = append(args, "mount")
-			args = append(args, "-dir="+v.Mountpoint)
-			args = append(args, "-dirAutoCreate")
-			args = append(args, "-volumeServerAccess=filerProxy")
-			for _, option := range v.Options {
-				args = append(args, option)
-			}
-			cmd := exec.Command("/usr/bin/weed", args...)
-			err := cmd.Run()
-			v.PID = cmd.Process.Pid
-		*/
+		var args []string
+		args = append(args, "mount")
+		args = append(args, "-dir="+v.Mountpoint)
+		args = append(args, "-dirAutoCreate")
+		args = append(args, "-volumeServerAccess=filerProxy")
+		for _, option := range v.Options {
+			args = append(args, option)
+		}
+		cmd := exec.Command("/usr/bin/weed", args...)
+		err := cmd.Run()
+		v.PID = cmd.Process.Pid
 		mountedVolumes = append(mountedVolumes, *v)
-		/*
-			if err != nil {
-				return err
-			}
-		*/
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
