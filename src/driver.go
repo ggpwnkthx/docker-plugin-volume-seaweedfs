@@ -65,8 +65,11 @@ func updateVolume(v *dockerVolume) error {
 		mountedVolumes[id] = *v
 	} else {
 		v.Mountpoint = filepath.Join(propagatedMount, v.Name)
-		if not os.path.exists(v.Mountpoint):
-    		os.makedirs(v.Mountpoint)
+		if _, err := os.Stat(v.Mountpoint); err != nil {
+			if os.IsNotExist(err) {
+				os.Mkdir(v.Mountpoint, 0755)
+			}
+		}
 		/*
 			var args []string
 			args = append(args, "mount")
