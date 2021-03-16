@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/sirupsen/logrus"
@@ -12,7 +11,6 @@ type volumeDriver struct{}
 
 func newVolumeDriver() (*volumeDriver, error) {
 	var d *volumeDriver
-	logrus.WithField("method", "new driver").Debug(propagatedMount)
 	return d, nil
 }
 
@@ -39,7 +37,6 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 			}
 		}
 	}
-	v.Mountpoint = filepath.Join(propagatedMount, r.Name) // "/path/under/PropagatedMount"
 	v.Name = r.Name
 	if err := updateVolume(&v); err != nil {
 		return err

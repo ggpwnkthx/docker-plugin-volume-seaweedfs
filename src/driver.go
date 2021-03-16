@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -63,10 +64,13 @@ func updateVolume(v *dockerVolume) error {
 	if id <= 0 {
 		mountedVolumes[id] = *v
 	} else {
+		v.Mountpoint = filepath.Join(propagatedMount, v.Name)
+		if not os.path.exists(v.Mountpoint):
+    		os.makedirs(v.Mountpoint)
 		/*
 			var args []string
 			args = append(args, "mount")
-			args = append(args, "-dir="+filepath.Join(propagatedMount, v.Name))
+			args = append(args, "-dir="+v.Mountpoint)
 			args = append(args, "-dirAutoCreate")
 			args = append(args, "-volumeServerAccess=filerProxy")
 			for _, option := range v.Options {
