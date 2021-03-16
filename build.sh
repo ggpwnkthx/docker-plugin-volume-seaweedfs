@@ -8,7 +8,7 @@ docker plugin rm $SCOPE_USER/$PLUGIN_NAME
 
 # Build
 docker build -t $SCOPE_USER/$PLUGIN_NAME .
-CONTAINER_ID=$(docker create $PLUGIN_NAME true)
+CONTAINER_ID=$(docker create $SCOPE_USER/$PLUGIN_NAME true)
 mkdir -p plugin/rootfs
 docker export "$CONTAINER_ID" | tar -x -C plugin/rootfs
 docker rm -vf "$CONTAINER_ID"
