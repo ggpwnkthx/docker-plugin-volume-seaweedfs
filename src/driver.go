@@ -34,20 +34,12 @@ func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
 // Opts is a map of driver specific options passed through from the user request.
 func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 	logrus.WithField("method", "create").Debugf("%#v", r)
-	var v dockerVolume
-	for key, val := range r.Options {
-		switch key {
-		default:
-			if val != "" {
-				v.Options = append(v.Options, key+"="+val)
-			} else {
-				v.Options = append(v.Options, key)
-			}
-		}
+	v := &dockerVolume{
+		Name:       r.Name,
+		Mountpoint: filepath.Join(d.propagatedMount, r.Name),
+		Options:    r.Options,
 	}
-	v.Mountpoint = filepath.Join(propagatedMount, r.Name) // "/path/under/PropagatedMount"
-	v.Name = r.Name
-	if err := d.updateVolume(&v); err != nil {
+	if err := d.updateVolume(v); err != nil {
 		return err
 	}
 	return nil

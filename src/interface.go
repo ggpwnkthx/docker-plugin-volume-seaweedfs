@@ -1,16 +1,18 @@
 package main
 
 import (
+	"errors"
 	"os"
-	"os/exec"
+	"reflect"
 
+	weed "github.com/chrislusf/seaweedfs/weed"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
 type dockerVolume struct {
-	Options          []string
+	Options          map[string]string
 	Name, Mountpoint string
-	PID, Connections int
+	Connections      int
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -25,49 +27,61 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	var args []string
-	args = append(args, "mount")
-	args = append(args, "-dir="+v.Mountpoint)
-	args = append(args, "-dirAutoCreate")
-	args = append(args, "-volumeServerAccess=filerProxy")
-	for _, option := range v.Options {
-		args = append(args, option)
-	}
-	cmd := exec.Command("/usr/bin/weed", args...)
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-	v.PID = cmd.Process.Pid
+	v.Connections++
 	return nil
 }
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
-	err := d.unmountVolume(v)
-	if err != nil {
-		return err
-	}
-	delete(d.volumes, v.Name)
-	return nil
-}
-
-func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	if v.Connections == 0 {
-		cmd, _ := os.FindProcess(v.PID)
-		err := cmd.Kill()
+		err := os.RemoveAll(v.Mountpoint)
 		if err != nil {
 			return err
 		}
+		delete(d.volumes, v.Name)
+		return nil
+	} else {
+		return errors.New("Active connections still exist.")
 	}
+}
+
+func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
+	v.Connections--
 	return nil
 }
 
 func (d *volumeDriver) updateVolume(v *dockerVolume) error {
-	d.volumes[v.Name] = v
-	if _, err := os.Stat(v.Mountpoint); err != nil {
-		if os.IsNotExist(err) {
-			os.MkdirAll(v.Mountpoint, 760)
+	if _, found := d.volumes[v.Name]; found {
+		d.volumes[v.Name] = v
+	} else {
+		if _, err := os.Stat(v.Mountpoint); err != nil {
+			if os.IsNotExist(err) {
+				os.MkdirAll(v.Mountpoint, 760)
+			}
 		}
+		mOptions := weed.MountOptions{
+			allowOthers:        true,
+			dir:                v.Mountpoint,
+			dirAutoCreate:      true,
+			volumeServerAccess: "filerProxy",
+		}
+		for oKey, oValue := range v.Options {
+			structValue := reflect.ValueOf(mOptions).Elem()
+			structFieldValue := structValue.FieldByName(oKey)
+			if !structFieldValue.IsValid() {
+				continue
+			}
+			if !structFieldValue.CanSet() {
+				continue
+			}
+			structFieldType := structFieldValue.Type()
+			val := reflect.ValueOf(oValue)
+			if structFieldType != val.Type() {
+				return errors.New("Provided value type didn't match obj field type")
+			}
+			structFieldValue.Set(val)
+		}
+		weed.command.RunMount(mOptions)
+		d.volumes[v.Name] = v
 	}
 	return nil
 }

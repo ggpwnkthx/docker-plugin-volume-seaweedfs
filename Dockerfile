@@ -7,6 +7,6 @@ WORKDIR /src
 RUN go mod tidy && go mod download && go build -o /bin/docker-plugin-volume
 
 FROM alpine:3
-COPY --from=chrislusf/seaweedfs /usr/bin/weed /usr/bin/
+#COPY --from=chrislusf/seaweedfs /usr/bin/weed /usr/bin/
 COPY --from=builder /bin/docker-plugin-volume /bin/docker-plugin-volume
 CMD ["/bin/docker-plugin-volume"]
