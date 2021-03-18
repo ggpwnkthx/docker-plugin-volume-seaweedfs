@@ -49,7 +49,7 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 		}
 	}
 	if err := d.updateVolume(v); err != nil {
-		return err
+		return errors.New("Update did not complete")
 	} else {
 		return errors.New("Create complete")
 	}
