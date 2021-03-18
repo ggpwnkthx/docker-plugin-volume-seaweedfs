@@ -48,19 +48,7 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) updateVolume(v *dockerVolume) error {
-	if _, found := d.volumes[v.Name]; found {
-		d.volumes[v.Name] = v
-	} else {
-		v.Mountpoint = filepath.Join(d.propagatedMount, v.Name)
-		if _, err := os.Stat(v.Mountpoint); err != nil {
-			if os.IsNotExist(err) {
-				err := os.MkdirAll(v.Mountpoint, 760)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		d.volumes[v.Name] = v
-	}
+	v.Mountpoint = filepath.Join(d.propagatedMount, v.Name)
+	d.volumes[v.Name] = v
 	return nil
 }
