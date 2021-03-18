@@ -14,20 +14,13 @@ type dockerVolume struct {
 	PID, Connections int
 }
 
-var mountedVolumes []dockerVolume
-
-func getVolumeByName(name string) (*dockerVolume, error) {
-	for _, mount := range mountedVolumes {
-		if mount.Name == name {
-			return &mount, nil
-		}
-	}
-	return nil, nil
+func (d *volumeDriver) getVolumeByName(name string) (*dockerVolume, error) {
+	return d.volumes[name], nil
 }
 
-func listVolumes() []*volume.Volume {
+func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
-	for _, mount := range mountedVolumes {
+	for _, mount := range d.volumes {
 		var v volume.Volume
 		v.Name = mount.Name
 		v.Mountpoint = mount.Mountpoint
@@ -36,11 +29,11 @@ func listVolumes() []*volume.Volume {
 	return volumes
 }
 
-func mountVolume(v *dockerVolume) error {
+func (d *volumeDriver) mountVolume(v *dockerVolume) error {
 	return nil
 }
 
-func removeVolume(v *dockerVolume) error {
+func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	if v.Connections == 0 {
 		cmd, _ := os.FindProcess(v.PID)
 		err := cmd.Kill()
@@ -51,21 +44,15 @@ func removeVolume(v *dockerVolume) error {
 	return nil
 }
 
-func unmountVolume(v *dockerVolume) error {
+func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	return nil
 }
 
-func updateVolume(v *dockerVolume) error {
-	id := -1
-	for index, mount := range mountedVolumes {
-		if mount.Name == v.Name {
-			id = index
-		}
-	}
-	if id <= 0 {
-		mountedVolumes[id] = *v
+func (d *volumeDriver) updateVolume(v *dockerVolume) error {
+	if _, found := d.volumes[v.Name]; found {
+		d.volumes[v.Name] = v
 	} else {
-		v.Mountpoint = filepath.Join(propagatedMount, v.Name)
+		v.Mountpoint = filepath.Join(d.propagatedMount, v.Name)
 		if _, err := os.Stat(v.Mountpoint); err != nil {
 			if os.IsNotExist(err) {
 				os.Mkdir(v.Mountpoint, 0755)
@@ -81,11 +68,11 @@ func updateVolume(v *dockerVolume) error {
 		}
 		cmd := exec.Command("/usr/bin/weed", args...)
 		err := cmd.Run()
-		v.PID = cmd.Process.Pid
-		mountedVolumes = append(mountedVolumes, *v)
 		if err != nil {
 			return err
 		}
+		v.PID = cmd.Process.Pid
+		d.volumes[v.Name] = v
 	}
 	return nil
 }
