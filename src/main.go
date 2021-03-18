@@ -26,7 +26,7 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	d, err := newVolumeDriver()
+	d, err := newVolumeDriver(propagatedMount)
 	if err != nil {
 		log.Fatal(err)
 	}

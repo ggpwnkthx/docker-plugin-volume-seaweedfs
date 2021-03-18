@@ -1,2 +1,2 @@
 # docker-plugin-volume-seaweedfs
- Generalized SeaweedFS volume plugin for docker.
+Generalized SeaweedFS volume plugin for docker.

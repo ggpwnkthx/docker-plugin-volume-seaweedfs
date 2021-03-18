@@ -2,90 +2,134 @@ package main
 
 import (
 	"os"
-	"os/exec"
-	"path/filepath"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/sirupsen/logrus"
 )
 
-type dockerVolume struct {
-	Options          []string
-	Name, Mountpoint string
-	PID, Connections int
+type volumeDriver struct {
+	root string
 }
 
-var mountedVolumes []dockerVolume
-
-func getVolumeByName(name string) (*dockerVolume, error) {
-	for _, mount := range mountedVolumes {
-		if mount.Name == name {
-			return &mount, nil
-		}
+func newVolumeDriver(root string) volumeDriver {
+	return volumeDriver{
+		root: root,
 	}
-	return nil, nil
 }
 
-func listVolumes() []*volume.Volume {
-	var volumes []*volume.Volume
-	for _, mount := range mountedVolumes {
-		var v volume.Volume
-		v.Name = mount.Name
-		v.Mountpoint = mount.Mountpoint
-		volumes = append(volumes, &v)
-	}
-	return volumes
+// Get the list of capabilities the driver supports.
+// The driver is not required to implement Capabilities. If it is not implemented, the default values are used.
+func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
+	return &volume.CapabilitiesResponse{Capabilities: volume.Capability{Scope: "local"}}
 }
 
-func mountVolume(v *dockerVolume) error {
-	return nil
-}
-
-func removeVolume(v *dockerVolume) error {
-	if v.Connections == 0 {
-		cmd, _ := os.FindProcess(v.PID)
-		err := cmd.Kill()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func unmountVolume(v *dockerVolume) error {
-	return nil
-}
-
-func updateVolume(v *dockerVolume) error {
-	id := -1
-	for index, mount := range mountedVolumes {
-		if mount.Name == v.Name {
-			id = index
-		}
-	}
-	if id <= 0 {
-		mountedVolumes[id] = *v
-	} else {
-		v.Mountpoint = filepath.Join(propagatedMount, v.Name)
-		if _, err := os.Stat(v.Mountpoint); err != nil {
-			if os.IsNotExist(err) {
-				os.Mkdir(v.Mountpoint, 0755)
+// Create Instructs the plugin that the user wants to create a volume,
+// given a user specified volume name. The plugin does not need to actually
+// manifest the volume on the filesystem yet (until Mount is called).
+// Opts is a map of driver specific options passed through from the user request.
+func (d *volumeDriver) Create(r *volume.CreateRequest) error {
+	logrus.WithField("method", "create").Debugf("%#v", r)
+	var v dockerVolume
+	for key, val := range r.Options {
+		switch key {
+		default:
+			if val != "" {
+				v.Options = append(v.Options, key+"="+val)
+			} else {
+				v.Options = append(v.Options, key)
 			}
 		}
-		var args []string
-		args = append(args, "mount")
-		args = append(args, "-dir="+v.Mountpoint)
-		args = append(args, "-dirAutoCreate")
-		args = append(args, "-volumeServerAccess=filerProxy")
-		for _, option := range v.Options {
-			args = append(args, option)
-		}
-		cmd := exec.Command("/usr/bin/weed", args...)
-		err := cmd.Run()
-		v.PID = cmd.Process.Pid
-		mountedVolumes = append(mountedVolumes, *v)
-		if err != nil {
-			return err
-		}
+	}
+	v.Name = r.Name
+	if err := updateVolume(&v); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Get info about volume_name.
+func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
+	logrus.WithField("method", "get").Debugf("%#v", r)
+	v, err := getVolumeByName(r.Name)
+	if err != nil {
+		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
+	}
+	logrus.WithField("get", "volumeinfo").Debugf("%#v", v)
+	return &volume.GetResponse{Volume: &volume.Volume{
+		Name:       r.Name,
+		Mountpoint: v.Mountpoint, // "/path/under/PropogatedMount"
+	}}, nil
+}
+
+// List of volumes registered with the plugin.
+func (d *volumeDriver) List() (*volume.ListResponse, error) {
+	var vols = listVolumes()
+	return &volume.ListResponse{Volumes: vols}, nil
+}
+
+// Mount is called once per container start.
+// If the same volume_name is requested more than once, the plugin may need to keep
+// track of each new mount request and provision at the first mount request and
+// deprovision at the last corresponding unmount request.
+// Docker requires the plugin to provide a volume, given a user specified volume name.
+// ID is a unique ID for the caller that is requesting the mount.
+func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
+	logrus.WithField("method", "mount").Debugf("%#v", r)
+	v, _ := getVolumeByName(r.Name)
+	mountVolume(v)
+	return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
+}
+
+// Path requests the path to the volume with the given volume_name.
+func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
+	logrus.WithField("method", "path").Debugf("%#v", r)
+	v, err := getVolumeByName(r.Name)
+	if err != nil {
+		return &volume.PathResponse{}, logError("volume %s not found", r.Name)
+	}
+	return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
+}
+
+// Remove the specified volume from disk. This request is issued when a
+// user invokes docker rm -v to remove volumes associated with a container.
+func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
+	logrus.WithField("method", "remove").Debugf("%#v", r)
+	v, err := getVolumeByName(r.Name)
+	if err != nil {
+		return logError("volume %s not found", r.Name)
+	}
+	if v.Connections != 0 {
+		return logError("volume %s is currently used by a container", r.Name)
+	}
+	unmountVolume(v)
+	if err := os.RemoveAll(v.Mountpoint); err != nil {
+		logError(err.Error())
+	}
+	removeVolume(v)
+	return nil
+}
+
+// Docker is no longer using the named volume.
+// Unmount is called once per container stop.
+// Plugin may deduce that it is safe to deprovision the volume at this point.
+// ID is a unique ID for the caller that is requesting the mount.
+func (d *volumeDriver) Unmount(r *volume.UnmountRequest) error {
+	logrus.WithField("method", "unmount").Debugf("%#v", r)
+	v, err := getVolumeByName(r.Name)
+	if err != nil {
+		return logError("volume %s not found", r.Name)
+	}
+	v.Connections--
+	err = updateVolume(v)
+	if err != nil {
+		logrus.WithField("updateVolume ERROR", err).Errorf("%#v", v)
+	} else {
+		logrus.WithField("updateVolume", r.Name).Debugf("%#v", v)
+	}
+	if v.Connections <= 0 {
+		v.Connections = 0
+		updateVolume(v)
+		unmountVolume(v)
 	}
 	return nil
 }
