@@ -9,4 +9,5 @@ require (
 	github.com/docker/go-plugins-helpers v0.0.0-20200102110956-c9a8a2d92ccc
 	github.com/sirupsen/logrus v1.8.1
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
+	github.com/chrislusf/seaweedfs v0.0.0-20210317185656-aa5179ce3c5a
 )
