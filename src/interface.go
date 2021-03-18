@@ -54,7 +54,10 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 		v.Mountpoint = filepath.Join(d.propagatedMount, v.Name)
 		if _, err := os.Stat(v.Mountpoint); err != nil {
 			if os.IsNotExist(err) {
-				os.Mkdir(v.Mountpoint, 0755)
+				err := os.MkdirAll(v.Mountpoint, 760)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		d.volumes[v.Name] = v
