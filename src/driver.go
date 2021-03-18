@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -34,7 +35,9 @@ func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
 // Opts is a map of driver specific options passed through from the user request.
 func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 	logrus.WithField("method", "create").Debugf("%#v", r)
-	var v dockerVolume
+	v := &dockerVolume{
+		Name: r.Name,
+	}
 	for key, val := range r.Options {
 		switch key {
 		default:
@@ -45,11 +48,11 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 			}
 		}
 	}
-	v.Name = r.Name
-	if err := d.updateVolume(&v); err != nil {
+	if err := d.updateVolume(v); err != nil {
 		return err
+	} else {
+		return errors.New("Create complete")
 	}
-	return nil
 }
 
 // Get info about volume_name.
