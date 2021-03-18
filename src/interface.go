@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	"path/filepath"
+	"os/exec"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -11,10 +11,6 @@ type dockerVolume struct {
 	Options          []string
 	Name, Mountpoint string
 	PID, Connections int
-}
-
-func (d *volumeDriver) getVolumeByName(name string) (*dockerVolume, error) {
-	return d.volumes[name], nil
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -39,6 +35,7 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 		if err != nil {
 			return err
 		}
+		delete(d.volumes, v.Name)
 	}
 	return nil
 }
@@ -48,7 +45,29 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) updateVolume(v *dockerVolume) error {
-	v.Mountpoint = filepath.Join(d.propagatedMount, v.Name)
-	d.volumes[v.Name] = v
+	if _, found := d.volumes[v.Name]; found {
+		d.volumes[v.Name] = v
+	} else {
+		if _, err := os.Stat(v.Mountpoint); err != nil {
+			if os.IsNotExist(err) {
+				os.Mkdir(v.Mountpoint, 0755)
+			}
+		}
+		var args []string
+		args = append(args, "mount")
+		args = append(args, "-dir="+v.Mountpoint)
+		args = append(args, "-dirAutoCreate")
+		args = append(args, "-volumeServerAccess=filerProxy")
+		for _, option := range v.Options {
+			args = append(args, option)
+		}
+		cmd := exec.Command("/usr/bin/weed", args...)
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+		v.PID = cmd.Process.Pid
+		d.volumes[v.Name] = v
+	}
 	return nil
 }

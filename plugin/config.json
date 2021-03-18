@@ -3,7 +3,7 @@
     "documentation": "https://docs.docker.com/engine/extend/config/",
     "workdir": "/",
     "entrypoint": [
-        "/bin/docker-plugin-volume-seaweedfs"
+        "/bin/docker-plugin-volume"
     ],
     "env": [
         {
