@@ -39,7 +39,7 @@ func (d *volumeDriver) mountVolume(v *dockerVolume) error {
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync.Lock()
 	defer d.volumes[v.Name].sync.Unlock()
-	if d.volumes[v.Name].Connections == 0 {
+	if d.volumes[v.Name].Connections < 1 {
 		err := d.volumes[v.Name].CMD.Process.Kill()
 		if err != nil {
 			return err
@@ -50,9 +50,8 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 		}
 		delete(d.volumes, v.Name)
 		return nil
-	} else {
-		return errors.New("There are still " + strconv.Itoa(v.Connections) + " active connections.")
 	}
+	return errors.New("There are still " + strconv.Itoa(v.Connections) + " active connections.")
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
