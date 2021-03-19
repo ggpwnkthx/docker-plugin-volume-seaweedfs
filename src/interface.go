@@ -12,7 +12,7 @@ type dockerVolume struct {
 	Options          map[string]string
 	Name, Mountpoint string
 	Connections      int
-	CMD              exec.Cmd
+	CMD              *exec.Cmd
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -57,6 +57,10 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 	if _, found := d.volumes[v.Name]; found {
 		d.volumes[v.Name] = v
 	} else {
+		_, ok := v.Options["filer"]
+		if !ok {
+			return errors.New("No filer name or address specified. No connection can be made.")
+		}
 		d.volumes[v.Name] = v
 		if _, err := os.Stat(v.Mountpoint); err != nil {
 			if os.IsNotExist(err) {
@@ -76,9 +80,8 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 				mOptions = append(mOptions, "-"+oKey)
 			}
 		}
-		d.volumes[v.Name].CMD = *exec.Command("/usr/bin/weed", mOptions...)
-		return errors.New(d.volumes[v.Name].CMD.String())
-		//d.volumes[v.Name].CMD.Start()
+		d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
+		d.volumes[v.Name].CMD.Start()
 	}
 	return nil
 }
