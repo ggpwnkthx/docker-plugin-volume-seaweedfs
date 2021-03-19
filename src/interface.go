@@ -5,7 +5,7 @@ import (
 	"os"
 	"reflect"
 
-	weed "github.com/chrislusf/seaweedfs/weed"
+	weed "github.com/chrislusf/seaweedfs/weed/command"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -80,7 +80,7 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 			}
 			structFieldValue.Set(val)
 		}
-		weed.command.RunMount(mOptions)
+		weed.RunMount(mOptions)
 		d.volumes[v.Name] = v
 	}
 	return nil

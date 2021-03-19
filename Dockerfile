@@ -4,8 +4,9 @@ RUN set -ex \
     gcc libc-dev git
 COPY ./src /src
 WORKDIR /src
-RUN go mod download
+RUN go get github.com/docker/go-plugins-helpers/volume
 RUN go get github.com/chrislusf/seaweedfs
+RUN go get github.com/sirupsen/logrus
 RUN go build -o /bin/docker-plugin-volume
 
 FROM alpine:3
