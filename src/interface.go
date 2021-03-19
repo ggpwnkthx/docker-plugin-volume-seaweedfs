@@ -10,10 +10,10 @@ import (
 )
 
 type dockerVolume struct {
-	Options          map[string]string
-	Name, Mountpoint string
-	Connections      int
-	CMD              *exec.Cmd
+	Options            map[string]string
+	Name, Mountpoint   string
+	Connections, Tries int
+	CMD                *exec.Cmd
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -82,7 +82,19 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 		}
 		d.volumes[v.Name] = v
 		d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
-		d.volumes[v.Name].CMD.Start()
+		d.volumes[v.Name].Tries = 0
 	}
 	return nil
+}
+
+func (d *volumeDriver) manager() {
+	for _, v := range d.volumes {
+		if v.CMD.ProcessState.Exited() {
+			if v.Tries < 3 {
+				v.CMD.Start()
+			} else {
+				d.removeVolume(v)
+			}
+		}
+	}
 }

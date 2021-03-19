@@ -50,7 +50,7 @@ func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
-			Mountpoint: v.Mountpoint, // "/path/under/PropogatedMount"
+			Mountpoint: v.Mountpoint, // "/path/under/propogatedMount"
 		}}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
@@ -95,11 +95,7 @@ func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error)
 func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 	logrus.WithField("method", "remove").Debugf("%#v", r)
 	if v, found := d.volumes[r.Name]; found {
-		err := d.unmountVolume(v)
-		if err != nil {
-			return logError(err.Error())
-		}
-		err = d.removeVolume(v)
+		err := d.removeVolume(v)
 		if err != nil {
 			return logError(err.Error())
 		}
@@ -116,18 +112,7 @@ func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 func (d *volumeDriver) Unmount(r *volume.UnmountRequest) error {
 	logrus.WithField("method", "unmount").Debugf("%#v", r)
 	if v, found := d.volumes[r.Name]; found {
-		v.Connections--
-		if err := d.updateVolume(v); err != nil {
-			logrus.WithField("updateVolume ERROR", err).Errorf("%#v", v)
-		} else {
-			logrus.WithField("updateVolume", r.Name).Debugf("%#v", v)
-		}
-		if v.Connections <= 0 {
-			v.Connections = 0
-			d.updateVolume(v)
-			d.unmountVolume(v)
-		}
-		return nil
+		return d.unmountVolume(v)
 	} else {
 		return logError("volume %s not found", r.Name)
 	}
