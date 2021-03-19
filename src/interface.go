@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -14,6 +15,7 @@ type dockerVolume struct {
 	Name, Mountpoint   string
 	Connections, Tries int
 	CMD                *exec.Cmd
+	sync               *sync.Mutex
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -28,7 +30,9 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	v.Connections++
+	d.volumes[v.Name].sync.Lock()
+	defer d.volumes[v.Name].sync.Unlock()
+	d.volumes[v.Name].Connections++
 	return nil
 }
 
@@ -50,12 +54,16 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
-	v.Connections--
+	d.volumes[v.Name].sync.Lock()
+	defer d.volumes[v.Name].sync.Unlock()
+	d.volumes[v.Name].Connections--
 	return nil
 }
 
 func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 	if _, found := d.volumes[v.Name]; found {
+		d.volumes[v.Name].sync.Lock()
+		defer d.volumes[v.Name].sync.Unlock()
 		d.volumes[v.Name] = v
 	} else {
 		_, ok := v.Options["filer"]
@@ -83,6 +91,7 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 		d.volumes[v.Name] = v
 		d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
 		d.volumes[v.Name].Tries = 0
+		d.volumes[v.Name].sync = &sync.Mutex{}
 	}
 	return nil
 }
@@ -91,7 +100,9 @@ func (d *volumeDriver) manager() {
 	for _, v := range d.volumes {
 		if v.CMD.ProcessState.Exited() {
 			if v.Tries < 3 {
+				v.sync.Unlock()
 				v.CMD.Start()
+				v.sync.Lock()
 			} else {
 				d.removeVolume(v)
 			}
