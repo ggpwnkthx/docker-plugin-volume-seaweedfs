@@ -4,7 +4,9 @@ RUN set -ex \
     gcc libc-dev git
 COPY ./src /src
 WORKDIR /src
-RUN go mod tidy && go mod download && go build -o /bin/docker-plugin-volume
+RUN go mod tidy
+RUN go mod download
+RUN go build -o /bin/docker-plugin-volume
 
 FROM alpine:3
 #COPY --from=chrislusf/seaweedfs /usr/bin/weed /usr/bin/
