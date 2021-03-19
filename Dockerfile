@@ -4,7 +4,6 @@ RUN set -ex \
     gcc libc-dev git
 COPY ./src /src
 WORKDIR /src
-RUN go mod tidy
 RUN go mod download
 RUN go get github.com/chrislusf/seaweedfs
 RUN go build -o /bin/docker-plugin-volume
