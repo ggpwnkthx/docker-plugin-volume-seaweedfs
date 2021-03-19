@@ -96,17 +96,3 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 	}
 	return nil
 }
-
-func (d *volumeDriver) manager() {
-	for _, v := range d.volumes {
-		if v.CMD.ProcessState.Exited() {
-			if v.Tries < 3 {
-				v.sync.Unlock()
-				v.CMD.Start()
-				v.sync.Lock()
-			} else {
-				d.removeVolume(v)
-			}
-		}
-	}
-}
