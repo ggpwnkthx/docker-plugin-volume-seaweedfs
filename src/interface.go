@@ -40,11 +40,7 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync.Lock()
 	defer d.volumes[v.Name].sync.Unlock()
 	if d.volumes[v.Name].Connections < 1 {
-		err := d.volumes[v.Name].CMD.Process.Kill()
-		if err != nil {
-			return err
-		}
-		err = os.RemoveAll(d.volumes[v.Name].Mountpoint)
+		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
 		if err != nil {
 			return err
 		}
@@ -95,4 +91,18 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 		d.volumes[v.Name].sync = &sync.Mutex{}
 	}
 	return nil
+}
+
+func (d *volumeDriver) manager() {
+	for _, v := range d.volumes {
+		if v.CMD.ProcessState.Exited() {
+			if v.Tries < 3 {
+				v.sync.Unlock()
+				v.CMD.Start()
+				v.sync.Lock()
+			} else {
+				d.removeVolume(v)
+			}
+		}
+	}
 }
