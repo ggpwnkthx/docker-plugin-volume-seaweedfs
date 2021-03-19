@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -44,7 +45,7 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 		delete(d.volumes, v.Name)
 		return nil
 	} else {
-		return errors.New("Active connections still exist.")
+		return errors.New("There are still " + strconv.Itoa(v.Connections) + " active connections.")
 	}
 }
 
@@ -61,7 +62,6 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 		if !ok {
 			return errors.New("No filer name or address specified. No connection can be made.")
 		}
-		d.volumes[v.Name] = v
 		if _, err := os.Stat(v.Mountpoint); err != nil {
 			if os.IsNotExist(err) {
 				os.MkdirAll(v.Mountpoint, 760)
@@ -80,6 +80,7 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 				mOptions = append(mOptions, "-"+oKey)
 			}
 		}
+		d.volumes[v.Name] = v
 		d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
 		d.volumes[v.Name].CMD.Start()
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -96,14 +95,14 @@ func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error)
 func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 	logrus.WithField("method", "remove").Debugf("%#v", r)
 	if v, found := d.volumes[r.Name]; found {
-		if v.Connections != 0 {
-			return logError("volume %s is currently used by a container", r.Name)
+		err := d.unmountVolume(v)
+		if err != nil {
+			return logError(err.Error())
 		}
-		d.unmountVolume(v)
-		if err := os.RemoveAll(v.Mountpoint); err != nil {
-			logError(err.Error())
+		err = d.removeVolume(v)
+		if err != nil {
+			return logError(err.Error())
 		}
-		d.removeVolume(v)
 		return nil
 	} else {
 		return logError("volume %s not found", r.Name)
