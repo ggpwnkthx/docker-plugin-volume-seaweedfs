@@ -3,9 +3,8 @@ package main
 import (
 	"errors"
 	"os"
-	"reflect"
+	"os/exec"
 
-	weed "github.com/chrislusf/seaweedfs/weed/command"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -13,6 +12,7 @@ type dockerVolume struct {
 	Options          map[string]string
 	Name, Mountpoint string
 	Connections      int
+	CMD              exec.Cmd
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -33,7 +33,11 @@ func (d *volumeDriver) mountVolume(v *dockerVolume) error {
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	if v.Connections == 0 {
-		err := os.RemoveAll(v.Mountpoint)
+		err := d.volumes[v.Name].CMD.Process.Kill()
+		if err != nil {
+			return err
+		}
+		err = os.RemoveAll(v.Mountpoint)
 		if err != nil {
 			return err
 		}
@@ -53,35 +57,28 @@ func (d *volumeDriver) updateVolume(v *dockerVolume) error {
 	if _, found := d.volumes[v.Name]; found {
 		d.volumes[v.Name] = v
 	} else {
+		d.volumes[v.Name] = v
 		if _, err := os.Stat(v.Mountpoint); err != nil {
 			if os.IsNotExist(err) {
 				os.MkdirAll(v.Mountpoint, 760)
 			}
 		}
-		mOptions := weed.MountOptions{
-			allowOthers:        true,
-			dir:                v.Mountpoint,
-			dirAutoCreate:      true,
-			volumeServerAccess: "filerProxy",
+		mOptions := []string{
+			"-allowOthers",
+			"-dir=" + v.Mountpoint,
+			"-dirAutoCreate",
+			"-volumeServerAccess=filerProxy",
 		}
 		for oKey, oValue := range v.Options {
-			structValue := reflect.ValueOf(mOptions).Elem()
-			structFieldValue := structValue.FieldByName(oKey)
-			if !structFieldValue.IsValid() {
-				continue
+			if oValue != "" {
+				mOptions = append(mOptions, "-"+oKey+"="+oValue)
+			} else {
+				mOptions = append(mOptions, "-"+oKey)
 			}
-			if !structFieldValue.CanSet() {
-				continue
-			}
-			structFieldType := structFieldValue.Type()
-			val := reflect.ValueOf(oValue)
-			if structFieldType != val.Type() {
-				return errors.New("Provided value type didn't match obj field type")
-			}
-			structFieldValue.Set(val)
 		}
-		weed.RunMount(mOptions)
-		d.volumes[v.Name] = v
+		d.volumes[v.Name].CMD = *exec.Command("/usr/bin/weed", mOptions...)
+		return errors.New(d.volumes[v.Name].CMD.String())
+		//d.volumes[v.Name].CMD.Start()
 	}
 	return nil
 }
