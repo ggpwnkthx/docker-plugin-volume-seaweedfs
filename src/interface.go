@@ -13,6 +13,7 @@ import (
 type dockerVolume struct {
 	Options            map[string]string
 	Name, Mountpoint   string
+	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
 	sync               *sync.Mutex
@@ -42,9 +43,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		}
 	}
 	d.volumes[v.Name] = v
-	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
-	d.volumes[v.Name].Tries = 0
 	d.volumes[v.Name].sync = &sync.Mutex{}
+	d.volumes[v.Name].Tries = 1
+	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
+	d.volumes[v.Name].CMD.Start()
 
 	return nil
 }
@@ -55,6 +57,7 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 		var v volume.Volume
 		v.Name = mount.Name
 		v.Mountpoint = mount.Mountpoint
+		v.Status = mount.Status
 		volumes = append(volumes, &v)
 	}
 	return volumes
@@ -92,12 +95,13 @@ func (d *volumeDriver) manager() {
 	for {
 		for _, v := range d.volumes {
 			if v.CMD.ProcessState.Exited() {
-				if v.Tries < 3 {
-					v.sync.Unlock()
-					v.CMD.Start()
-					v.sync.Lock()
-				} else {
-					d.removeVolume(v)
+				_, stderr := v.Status["stderr"]
+				if !stderr {
+					v.Status["stderr"] = v.CMD.Stderr
+				}
+				_, stdout := v.Status["stdout"]
+				if !stdout {
+					v.Status["stdout"] = v.CMD.Stdout
 				}
 			}
 		}
