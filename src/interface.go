@@ -121,4 +121,3 @@ func (d *volumeDriver) manager() {
 		d.sync.Unlock()
 	}
 }
-*/
