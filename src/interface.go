@@ -46,7 +46,6 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync = &sync.Mutex{}
 	d.volumes[v.Name].Tries = 1
 	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
-	d.volumes[v.Name].CMD.Start()
 
 	return nil
 }
@@ -94,16 +93,24 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 func (d *volumeDriver) manager() {
 	for {
 		for _, v := range d.volumes {
+			v.sync.Lock()
+			v.Status["Args"] = v.CMD.Args
+			v.Status["Dir"] = v.CMD.Dir
+			v.Status["Env"] = v.CMD.Env
+			v.Status["Path"] = v.CMD.Path
+			v.Status["String"] = v.CMD.String()
+			v.Status["ProcessState"] = v.CMD.ProcessState
 			if v.CMD.ProcessState.Exited() {
-				_, stderr := v.Status["stderr"]
+				_, stderr := v.Status["Stderr"]
 				if !stderr {
-					v.Status["stderr"] = v.CMD.Stderr
+					v.Status["Stderr"] = v.CMD.Stderr
 				}
-				_, stdout := v.Status["stdout"]
+				_, stdout := v.Status["Stdout"]
 				if !stdout {
-					v.Status["stdout"] = v.CMD.Stdout
+					v.Status["Stdout"] = v.CMD.Stdout
 				}
 			}
+			v.sync.Unlock()
 		}
 	}
 }
