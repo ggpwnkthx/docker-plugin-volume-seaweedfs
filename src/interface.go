@@ -85,9 +85,8 @@ func (d *volumeDriver) mountVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
-	d.volumes[v.Name].sync.Lock()
-	defer d.volumes[v.Name].sync.Unlock()
 	if d.volumes[v.Name].Connections < 1 {
+		d.volumes[v.Name].sync.Lock()
 		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
 		if err != nil {
 			return err
