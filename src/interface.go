@@ -53,10 +53,12 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, mount := range d.volumes {
+		mount.sync.Lock()
 		var v volume.Volume
 		v.Name = mount.Name
 		v.Mountpoint = mount.Mountpoint
 		v.Status = mount.Status
+		mount.sync.Unlock()
 		volumes = append(volumes, &v)
 	}
 	return volumes
@@ -64,8 +66,8 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync.Lock()
-	defer d.volumes[v.Name].sync.Unlock()
 	d.volumes[v.Name].Connections++
+	d.volumes[v.Name].sync.Unlock()
 	return nil
 }
 
@@ -90,6 +92,7 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	return nil
 }
 
+/*
 func (d *volumeDriver) manager() {
 	for {
 		for _, v := range d.volumes {
@@ -114,3 +117,4 @@ func (d *volumeDriver) manager() {
 		}
 	}
 }
+*/

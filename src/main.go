@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 	h := volume.NewHandler(d)
-	go d.manager()
+	//go d.manager()
 	logrus.Infof("listening on %s", socketAddress)
 	logrus.Error(h.ServeUnix(socketAddress, 0))
 }
