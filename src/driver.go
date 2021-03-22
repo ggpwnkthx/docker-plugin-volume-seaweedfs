@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/sirupsen/logrus"
@@ -10,6 +11,7 @@ import (
 type volumeDriver struct {
 	propagatedMount string
 	volumes         map[string]*dockerVolume
+	sync            *sync.Mutex
 }
 
 func newVolumeDriver(propagatedMount string) (*volumeDriver, error) {
@@ -17,6 +19,7 @@ func newVolumeDriver(propagatedMount string) (*volumeDriver, error) {
 	d := &volumeDriver{
 		propagatedMount: propagatedMount,
 		volumes:         map[string]*dockerVolume{},
+		sync:            &sync.Mutex{},
 	}
 	return d, nil
 }

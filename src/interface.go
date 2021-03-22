@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -16,10 +15,12 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	sync               *sync.Mutex
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
+	d.sync.Lock()
+	defer d.sync.Unlock()
+
 	_, ok := v.Options["filer"]
 	if !ok {
 		return errors.New("No filer name or address specified. No connection can be made.")
@@ -50,7 +51,6 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		sync:        &sync.Mutex{},
 	}
 	d.volumes[v.Name].CMD.Start()
 
@@ -58,10 +58,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
-	v.sync.Lock()
+	d.sync.Lock()
+	defer d.sync.Unlock()
 	v.Status["String"] = v.CMD.String()
 	v.Status["ProcessState"] = v.CMD.ProcessState
-	v.sync.Unlock()
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -78,19 +78,21 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	d.volumes[v.Name].sync.Lock()
+	d.sync.Lock()
+	defer d.sync.Unlock()
 	d.volumes[v.Name].Connections++
-	d.volumes[v.Name].sync.Unlock()
 	return nil
 }
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	if d.volumes[v.Name].Connections < 1 {
-		d.volumes[v.Name].sync.Lock()
-		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
-		if err != nil {
-			return err
-		}
+		d.sync.Lock()
+		/*
+			err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
+			if err != nil {
+				return err
+			}
+		*/
 		delete(d.volumes, v.Name)
 		return nil
 	}
@@ -98,8 +100,8 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
-	d.volumes[v.Name].sync.Lock()
-	defer d.volumes[v.Name].sync.Unlock()
+	d.sync.Lock()
+	defer d.sync.Unlock()
 	d.volumes[v.Name].Connections--
 	return nil
 }
