@@ -105,19 +105,3 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	d.volumes[v.Name].Connections--
 	return nil
 }
-
-func (d *volumeDriver) manager() {
-	for {
-		d.sync.Lock()
-		for _, v := range d.volumes {
-			if v.CMD.ProcessState.Exited() {
-				if v.Tries < 3 {
-					v.CMD.Start()
-				} else {
-					v.Status["Err"] = "Command failed to start 3 times."
-				}
-			}
-		}
-		d.sync.Unlock()
-	}
-}
