@@ -13,6 +13,7 @@ import (
 type dockerVolume struct {
 	Options            map[string]string
 	Name, Mountpoint   string
+	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
 	sync               *sync.Mutex
@@ -50,23 +51,19 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	return nil
 }
 
-func (d *volumeDriver) getVolume(name string) *volume.Volume {
-	d.volumes[name].sync.Lock()
-	var v volume.Volume
-	v.Name = d.volumes[name].Name
-	v.Mountpoint = d.volumes[name].Mountpoint
-	v.Status["Args"] = d.volumes[name].CMD.Args
-	v.Status["Dir"] = d.volumes[name].CMD.Dir
-	v.Status["Env"] = d.volumes[name].CMD.Env
-	v.Status["Path"] = d.volumes[name].CMD.Path
-	v.Status["String"] = d.volumes[name].CMD.String()
-	v.Status["ProcessState"] = d.volumes[name].CMD.ProcessState
-	if d.volumes[name].CMD.ProcessState.Exited() {
-		v.Status["Stderr"] = d.volumes[name].CMD.Stderr
-		v.Status["Stdout"] = d.volumes[name].CMD.Stdout
+func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
+	v.sync.Lock()
+	v.Status["Args"] = v.CMD.Args
+	v.Status["Dir"] = v.CMD.Dir
+	v.Status["Env"] = v.CMD.Env
+	v.Status["Path"] = v.CMD.Path
+	v.Status["String"] = v.CMD.String()
+	v.Status["ProcessState"] = v.CMD.ProcessState
+	if v.CMD.ProcessState.Exited() {
+		v.Status["Stderr"] = v.CMD.Stderr
+		v.Status["Stdout"] = v.CMD.Stdout
 	}
-	d.volumes[name].sync.Unlock()
-	return &v
+	v.sync.Unlock()
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
