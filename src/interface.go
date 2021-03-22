@@ -42,10 +42,15 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 			mOptions = append(mOptions, "-"+oKey)
 		}
 	}
-	d.volumes[v.Name] = v
-	d.volumes[v.Name].sync = &sync.Mutex{}
-	d.volumes[v.Name].Tries = 1
-	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
+	d.volumes[v.Name] = &dockerVolume{
+		Options:     v.Options,
+		Name:        v.Name,
+		Mountpoint:  v.Mountpoint,
+		Connections: 0,
+		Tries:       0,
+		CMD:         exec.Command("/usr/bin/weed", mOptions...),
+		sync:        &sync.Mutex{},
+	}
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
