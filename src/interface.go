@@ -13,7 +13,6 @@ import (
 type dockerVolume struct {
 	Options            map[string]string
 	Name, Mountpoint   string
-	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
 	sync               *sync.Mutex
@@ -46,6 +45,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync = &sync.Mutex{}
 	d.volumes[v.Name].Tries = 1
 	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
+	d.volumes[v.Name].CMD.Start()
 
 	return nil
 }
@@ -57,7 +57,16 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 		var v volume.Volume
 		v.Name = mount.Name
 		v.Mountpoint = mount.Mountpoint
-		v.Status = mount.Status
+		v.Status["Args"] = mount.CMD.Args
+		v.Status["Dir"] = mount.CMD.Dir
+		v.Status["Env"] = mount.CMD.Env
+		v.Status["Path"] = mount.CMD.Path
+		v.Status["String"] = mount.CMD.String()
+		v.Status["ProcessState"] = mount.CMD.ProcessState
+		if mount.CMD.ProcessState.Exited() {
+			v.Status["Stderr"] = mount.CMD.Stderr
+			v.Status["Stdout"] = mount.CMD.Stdout
+		}
 		mount.sync.Unlock()
 		volumes = append(volumes, &v)
 	}
