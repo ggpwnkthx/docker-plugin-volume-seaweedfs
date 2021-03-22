@@ -50,25 +50,29 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	return nil
 }
 
+func (d *volumeDriver) getVolume(name string) *volume.Volume {
+	d.volumes[name].sync.Lock()
+	var v volume.Volume
+	v.Name = d.volumes[name].Name
+	v.Mountpoint = d.volumes[name].Mountpoint
+	v.Status["Args"] = d.volumes[name].CMD.Args
+	v.Status["Dir"] = d.volumes[name].CMD.Dir
+	v.Status["Env"] = d.volumes[name].CMD.Env
+	v.Status["Path"] = d.volumes[name].CMD.Path
+	v.Status["String"] = d.volumes[name].CMD.String()
+	v.Status["ProcessState"] = d.volumes[name].CMD.ProcessState
+	if d.volumes[name].CMD.ProcessState.Exited() {
+		v.Status["Stderr"] = d.volumes[name].CMD.Stderr
+		v.Status["Stdout"] = d.volumes[name].CMD.Stdout
+	}
+	d.volumes[name].sync.Unlock()
+	return &v
+}
+
 func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
-	for _, mount := range d.volumes {
-		mount.sync.Lock()
-		var v volume.Volume
-		v.Name = mount.Name
-		v.Mountpoint = mount.Mountpoint
-		v.Status["Args"] = mount.CMD.Args
-		v.Status["Dir"] = mount.CMD.Dir
-		v.Status["Env"] = mount.CMD.Env
-		v.Status["Path"] = mount.CMD.Path
-		v.Status["String"] = mount.CMD.String()
-		v.Status["ProcessState"] = mount.CMD.ProcessState
-		if mount.CMD.ProcessState.Exited() {
-			v.Status["Stderr"] = mount.CMD.Stderr
-			v.Status["Stdout"] = mount.CMD.Stdout
-		}
-		mount.sync.Unlock()
-		volumes = append(volumes, &v)
+	for _, v := range d.volumes {
+		volumes = append(volumes, d.getVolume(v.Name))
 	}
 	return volumes
 }

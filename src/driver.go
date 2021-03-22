@@ -48,10 +48,7 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	logrus.WithField("method", "get").Debugf("%#v", r)
 	if v, found := d.volumes[r.Name]; found {
-		return &volume.GetResponse{Volume: &volume.Volume{
-			Name:       v.Name,
-			Mountpoint: v.Mountpoint, // "/path/under/propogatedMount"
-		}}, nil
+		return &volume.GetResponse{Volume: d.getVolume(v.Name)}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
 	}
