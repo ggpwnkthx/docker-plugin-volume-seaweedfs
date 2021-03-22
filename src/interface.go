@@ -105,29 +105,19 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	return nil
 }
 
-/*
 func (d *volumeDriver) manager() {
 	for {
+		d.sync.Lock()
 		for _, v := range d.volumes {
-			v.sync.Lock()
-			v.Status["Args"] = v.CMD.Args
-			v.Status["Dir"] = v.CMD.Dir
-			v.Status["Env"] = v.CMD.Env
-			v.Status["Path"] = v.CMD.Path
-			v.Status["String"] = v.CMD.String()
-			v.Status["ProcessState"] = v.CMD.ProcessState
 			if v.CMD.ProcessState.Exited() {
-				_, stderr := v.Status["Stderr"]
-				if !stderr {
-					v.Status["Stderr"] = v.CMD.Stderr
-				}
-				_, stdout := v.Status["Stdout"]
-				if !stdout {
-					v.Status["Stdout"] = v.CMD.Stdout
+				if v.Tries < 3 {
+					v.CMD.Start()
+				} else {
+					v.Status["Err"] = "Command failed to start 3 times."
 				}
 			}
-			v.sync.Unlock()
 		}
+		d.sync.Unlock()
 	}
 }
 */
