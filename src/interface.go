@@ -69,7 +69,12 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
-		volumes = append(volumes, d.getVolume(v.Name))
+		d.updateVolumeStatus(v)
+		volumes = append(volumes, &volume.Volume{
+			Name:       v.Name,
+			Mountpoint: v.Mountpoint,
+			Status:     v.Status,
+		})
 	}
 	return volumes
 }
