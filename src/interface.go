@@ -53,16 +53,8 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	v.sync.Lock()
-	v.Status["Args"] = v.CMD.Args
-	v.Status["Dir"] = v.CMD.Dir
-	v.Status["Env"] = v.CMD.Env
-	v.Status["Path"] = v.CMD.Path
 	v.Status["String"] = v.CMD.String()
 	v.Status["ProcessState"] = v.CMD.ProcessState
-	if v.CMD.ProcessState.Exited() {
-		v.Status["Stderr"] = v.CMD.Stderr
-		v.Status["Stdout"] = v.CMD.Stdout
-	}
 	v.sync.Unlock()
 }
 
