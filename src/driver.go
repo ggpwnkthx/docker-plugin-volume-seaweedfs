@@ -38,7 +38,7 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name),
 		Options:    r.Options,
 	}
-	if err := d.updateVolume(v); err != nil {
+	if err := d.createVolume(v); err != nil {
 		return err
 	}
 	return nil

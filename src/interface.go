@@ -18,6 +18,37 @@ type dockerVolume struct {
 	sync               *sync.Mutex
 }
 
+func (d *volumeDriver) createVolume(v *dockerVolume) error {
+	_, ok := v.Options["filer"]
+	if !ok {
+		return errors.New("No filer name or address specified. No connection can be made.")
+	}
+	if _, err := os.Stat(v.Mountpoint); err != nil {
+		if os.IsNotExist(err) {
+			os.MkdirAll(v.Mountpoint, 760)
+		}
+	}
+	mOptions := []string{
+		"-allowOthers",
+		"-dir=" + v.Mountpoint,
+		"-dirAutoCreate",
+		"-volumeServerAccess=filerProxy",
+	}
+	for oKey, oValue := range v.Options {
+		if oValue != "" {
+			mOptions = append(mOptions, "-"+oKey+"="+oValue)
+		} else {
+			mOptions = append(mOptions, "-"+oKey)
+		}
+	}
+	d.volumes[v.Name] = v
+	d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
+	d.volumes[v.Name].Tries = 0
+	d.volumes[v.Name].sync = &sync.Mutex{}
+
+	return nil
+}
+
 func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, mount := range d.volumes {
@@ -54,42 +85,6 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	d.volumes[v.Name].sync.Lock()
 	defer d.volumes[v.Name].sync.Unlock()
 	d.volumes[v.Name].Connections--
-	return nil
-}
-
-func (d *volumeDriver) updateVolume(v *dockerVolume) error {
-	if _, found := d.volumes[v.Name]; found {
-		d.volumes[v.Name].sync.Lock()
-		defer d.volumes[v.Name].sync.Unlock()
-		d.volumes[v.Name] = v
-	} else {
-		_, ok := v.Options["filer"]
-		if !ok {
-			return errors.New("No filer name or address specified. No connection can be made.")
-		}
-		if _, err := os.Stat(v.Mountpoint); err != nil {
-			if os.IsNotExist(err) {
-				os.MkdirAll(v.Mountpoint, 760)
-			}
-		}
-		mOptions := []string{
-			"-allowOthers",
-			"-dir=" + v.Mountpoint,
-			"-dirAutoCreate",
-			"-volumeServerAccess=filerProxy",
-		}
-		for oKey, oValue := range v.Options {
-			if oValue != "" {
-				mOptions = append(mOptions, "-"+oKey+"="+oValue)
-			} else {
-				mOptions = append(mOptions, "-"+oKey)
-			}
-		}
-		d.volumes[v.Name] = v
-		d.volumes[v.Name].CMD = exec.Command("/usr/bin/weed", mOptions...)
-		d.volumes[v.Name].Tries = 0
-		d.volumes[v.Name].sync = &sync.Mutex{}
-	}
 	return nil
 }
 
