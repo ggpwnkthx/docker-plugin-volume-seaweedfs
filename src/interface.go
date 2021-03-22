@@ -46,6 +46,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Options:     v.Options,
 		Name:        v.Name,
 		Mountpoint:  v.Mountpoint,
+		Status:      make(map[string]interface{}),
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
