@@ -60,8 +60,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
-	v.Status["String"] = v.CMD.String()
-	v.Status["ProcessState"] = v.CMD.ProcessState
+	v.Status["weed"] = v.CMD
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
