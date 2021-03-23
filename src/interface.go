@@ -104,9 +104,9 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	d.sync.Lock()
-	defer d.sync.Unlock()
-	d.volumes[v.Name].Connections++
+	//d.sync.Lock()
+	//defer d.sync.Unlock()
+	//d.volumes[v.Name].Connections++
 	return nil
 }
 
@@ -125,9 +125,9 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
-	d.sync.Lock()
-	defer d.sync.Unlock()
-	d.volumes[v.Name].Connections--
+	//d.sync.Lock()
+	//defer d.sync.Unlock()
+	//d.volumes[v.Name].Connections--
 	return nil
 }
 
