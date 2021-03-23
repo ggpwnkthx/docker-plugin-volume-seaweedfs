@@ -56,7 +56,8 @@ func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 		d.updateVolumeStatus(v)
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
-			Mountpoint: v.Mountpoint, // "/path/under/propogatedMount"
+			Mountpoint: v.Mountpoint,
+			CreatedAt:  v.CreatedAt,
 			Status:     v.Status,
 		}}, nil
 	} else {
