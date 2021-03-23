@@ -69,7 +69,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		return err
 	}
 	d.volumes[v.Name].CMD.Stderr = d.volumes[v.Name].stderr
-	d.volumes[v.Name].CMD.Start()
+	go d.volumes[v.Name].CMD.Run()
 
 	return nil
 }
