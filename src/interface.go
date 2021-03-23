@@ -15,7 +15,6 @@ type dockerVolume struct {
 	CreatedAt          string
 	Options            map[string]string
 	Name, Mountpoint   string
-	Status             map[string]interface{}
 	Connections, Tries int
 	Exec               struct {
 		CMD    *exec.Cmd
@@ -59,7 +58,6 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Options:     v.Options,
 		Name:        v.Name,
 		Mountpoint:  v.Mountpoint,
-		Status:      make(map[string]interface{}),
 		Connections: 0,
 		Tries:       0,
 		Exec: struct {
@@ -85,10 +83,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	return nil
 }
 
-func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
-	d.sync.Lock()
-	defer d.sync.Unlock()
-	v.Status["weed"] = v.Exec
+func (d *volumeDriver) getVolumeStatus(v *dockerVolume) interface{} {
+	d.sync.RLock()
+	defer d.sync.RUnlock()
+	return d.volumes[v.Name].Exec
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {

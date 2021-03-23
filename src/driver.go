@@ -53,12 +53,11 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	logrus.WithField("method", "get").Debugf("%#v", r)
 	if v, found := d.volumes[r.Name]; found {
-		d.updateVolumeStatus(v)
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
 			CreatedAt:  v.CreatedAt,
-			Status:     v.Status,
+			Status:     d.getVolumeStatus(v),
 		}}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
