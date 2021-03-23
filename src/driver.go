@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,7 @@ func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
 func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 	logrus.WithField("method", "create").Debugf("%#v", r)
 	v := &dockerVolume{
+		CreatedAt:  time.Now().String(),
 		Name:       r.Name,
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name),
 		Options:    r.Options,

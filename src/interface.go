@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 )
 
 type dockerVolume struct {
+	CreatedAt          string
 	Options            map[string]string
 	Name, Mountpoint   string
 	Status             map[string]interface{}
@@ -59,24 +61,6 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		stdout:      "",
 		stderr:      "",
 	}
-	stdout, err := d.volumes[v.Name].CMD.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := d.volumes[v.Name].CMD.StderrPipe()
-	if err != nil {
-		return err
-	}
-	go func() {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(stdout)
-		d.volumes[v.Name].stdout += buf.String()
-	}()
-	go func() {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(stderr)
-		d.volumes[v.Name].stderr += buf.String()
-	}()
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
@@ -86,8 +70,18 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-	v.Status["stdout"] = v.stdout
-	v.Status["stderr"] = v.stderr
+
+	stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
+	outbuf := new(bytes.Buffer)
+	outbuf.ReadFrom(stdout)
+	strout := fmt.Sprintf("%v", v.Status["stdout"]) + outbuf.String()
+	v.Status["stdout"] = strout
+
+	stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
+	errbuf := new(bytes.Buffer)
+	errbuf.ReadFrom(stderr)
+	strerr := fmt.Sprintf("%v", v.Status["stderr"]) + errbuf.String()
+	v.Status["stderr"] = strerr
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
@@ -95,6 +89,7 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 	for _, v := range d.volumes {
 		d.updateVolumeStatus(v)
 		volumes = append(volumes, &volume.Volume{
+			CreatedAt:  v.CreatedAt,
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
 			Status:     v.Status,
@@ -114,12 +109,10 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	if d.volumes[v.Name].Connections < 1 {
-		/*
-			err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
-			if err != nil {
-				return err
-			}
-		*/
+		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
+		if err != nil {
+			return err
+		}
 		delete(d.volumes, v.Name)
 		return nil
 	}
