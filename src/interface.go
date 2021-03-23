@@ -135,26 +135,22 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 func manage(d *volumeDriver, v *dockerVolume) {
 	for {
 		if d.volumes[v.Name] != nil {
-			buf := make([]byte, 1024)
 			d.sync.RLock()
-			n, err := d.volumes[v.Name].Exec.stdout.Read(buf)
+			outbuf := make([]byte, 1024)
+			outn, _ := d.volumes[v.Name].Exec.stdout.Read(outbuf)
+			errbuf := make([]byte, 1024)
+			errn, _ := d.volumes[v.Name].Exec.stderr.Read(errbuf)
 			d.sync.RUnlock()
-			d.sync.Lock()
-			if err != nil {
-				d.volumes[v.Name].Exec.logs.err += err.Error()
+			if outn > 0 {
+				d.sync.Lock()
+				d.volumes[v.Name].Exec.logs.out += string(outbuf[0:outn])
+				d.sync.Unlock()
 			}
-			d.volumes[v.Name].Exec.logs.out += string(buf[0:n])
-			d.sync.Unlock()
-
-			d.sync.RLock()
-			n, err = d.volumes[v.Name].Exec.stderr.Read(buf)
-			d.sync.RUnlock()
-			d.sync.Lock()
-			if err != nil {
-				d.volumes[v.Name].Exec.logs.err += err.Error()
+			if errn > 0 {
+				d.sync.Lock()
+				d.volumes[v.Name].Exec.logs.err += string(errbuf[0:errn])
+				d.sync.Unlock()
 			}
-			d.volumes[v.Name].Exec.logs.err += string(buf[0:n])
-			d.sync.Unlock()
 			time.Sleep(2 * time.Second)
 		} else {
 			break
