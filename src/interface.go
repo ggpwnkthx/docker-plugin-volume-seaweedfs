@@ -133,6 +133,7 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 }
 
 func manage(d *volumeDriver, v *dockerVolume) {
+	defer d.sync.Unlock()
 	for {
 		if d.volumes[v.Name] != nil {
 			d.sync.RLock()
