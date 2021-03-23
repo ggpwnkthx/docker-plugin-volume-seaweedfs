@@ -72,21 +72,25 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		return err
 	}
 	go func(d *volumeDriver, v *dockerVolume) {
-		buf := make([]byte, 1024)
 		for {
-			d.sync.Lock()
-			n, err := d.volumes[v.Name].stdout.Read(buf)
-			if err != nil {
-				d.volumes[v.Name].logs.err += err.Error()
+			if d.volumes[v.Name] != nil {
+				buf := make([]byte, 1024)
+				d.sync.Lock()
+				n, err := d.volumes[v.Name].stdout.Read(buf)
+				if err != nil {
+					d.volumes[v.Name].logs.err += err.Error()
+				}
+				d.volumes[v.Name].logs.out += string(buf[0:n])
+				n, err = d.volumes[v.Name].stderr.Read(buf)
+				if err != nil {
+					d.volumes[v.Name].logs.err += err.Error()
+				}
+				d.volumes[v.Name].logs.err += string(buf[0:n])
+				d.sync.Unlock()
+				time.Sleep(2 * time.Second)
+			} else {
+				break
 			}
-			d.volumes[v.Name].logs.out += string(buf[0:n])
-			n, err = d.volumes[v.Name].stderr.Read(buf)
-			if err != nil {
-				d.volumes[v.Name].logs.err += err.Error()
-			}
-			d.volumes[v.Name].logs.err += string(buf[0:n])
-			d.sync.Unlock()
-			time.Sleep(2 * time.Second)
 		}
 	}(d, v)
 
