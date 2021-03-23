@@ -61,8 +61,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	}
 	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
 	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
-	d.volumes[v.Name].CMD.Start()
-	go func() {
+	if err := d.volumes[v.Name].CMD.Start(); err != nil {
+		return err
+	}
+	go func(d *volumeDriver, v *dockerVolume) {
 		buf := make([]byte, 80)
 		for {
 			n, err := d.volumes[v.Name].stdout.Read(buf)
@@ -75,8 +77,8 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 				break
 			}
 		}
-	}()
-	go func() {
+	}(d, v)
+	go func(d *volumeDriver, v *dockerVolume) {
 		buf := make([]byte, 80)
 		for {
 			n, err := d.volumes[v.Name].stderr.Read(buf)
@@ -89,7 +91,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 				break
 			}
 		}
-	}()
+	}(d, v)
 
 	return nil
 }
