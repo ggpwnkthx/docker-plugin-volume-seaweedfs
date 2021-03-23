@@ -17,8 +17,8 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	stdout             *os.File
-	stderr             *os.File
+	stdout             []byte
+	stderr             []byte
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -56,20 +56,46 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
+		stdout:      make([]byte, 0),
+		stderr:      make([]byte, 0),
 	}
 	os.MkdirAll("/var/log", os.ModePerm)
-	var err error
-	d.volumes[v.Name].stdout, err = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	d.volumes[v.Name].CMD.Stdout = d.volumes[v.Name].stdout
-	d.volumes[v.Name].stderr, err = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	d.volumes[v.Name].CMD.Stderr = d.volumes[v.Name].stderr
-	go d.volumes[v.Name].CMD.Run()
+	go func() {
+		//d.volumes[v.Name].CMD.Stdout, _ = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		//d.volumes[v.Name].CMD.Stderr, _ = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
+		stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
+		d.volumes[v.Name].CMD.Start()
+		go func() {
+			buf := make([]byte, 80)
+			for {
+				n, err := stdout.Read(buf)
+				if n > 0 {
+					d.sync.Lock()
+					d.volumes[v.Name].stdout = append(d.volumes[v.Name].stdout, buf[0:n]...)
+					d.sync.Unlock()
+				}
+				if err != nil {
+					break
+				}
+			}
+		}()
+		go func() {
+			buf := make([]byte, 80)
+			for {
+				n, err := stderr.Read(buf)
+				if n > 0 {
+					d.sync.Lock()
+					d.volumes[v.Name].stderr = append(d.volumes[v.Name].stderr, buf[0:n]...)
+					d.sync.Unlock()
+				}
+				if err != nil {
+					break
+				}
+			}
+		}()
+		d.volumes[v.Name].CMD.Wait()
+	}()
 
 	return nil
 }
