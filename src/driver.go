@@ -52,12 +52,13 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 // Get info about volume_name.
 func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	logrus.WithField("method", "get").Debugf("%#v", r)
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
 			CreatedAt:  v.CreatedAt,
-			Status:     d.getVolumeStatus(v),
 		}}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
@@ -78,6 +79,8 @@ func (d *volumeDriver) List() (*volume.ListResponse, error) {
 // ID is a unique ID for the caller that is requesting the mount.
 func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	logrus.WithField("method", "mount").Debugf("%#v", r)
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	if v, found := d.volumes[r.Name]; found {
 		d.mountVolume(v)
 		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
@@ -89,6 +92,8 @@ func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, err
 // Path requests the path to the volume with the given volume_name.
 func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	logrus.WithField("method", "path").Debugf("%#v", r)
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
@@ -101,6 +106,8 @@ func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error)
 // user invokes docker rm -v to remove volumes associated with a container.
 func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 	logrus.WithField("method", "remove").Debugf("%#v", r)
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	if v, found := d.volumes[r.Name]; found {
 		err := d.removeVolume(v)
 		if err != nil {
@@ -118,6 +125,8 @@ func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 // ID is a unique ID for the caller that is requesting the mount.
 func (d *volumeDriver) Unmount(r *volume.UnmountRequest) error {
 	logrus.WithField("method", "unmount").Debugf("%#v", r)
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	if v, found := d.volumes[r.Name]; found {
 		return d.unmountVolume(v)
 	} else {
