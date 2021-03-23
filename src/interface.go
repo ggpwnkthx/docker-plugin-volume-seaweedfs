@@ -3,9 +3,9 @@ package main
 import (
 	"errors"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -22,14 +22,21 @@ func (d *Driver) createVolume(v *Volume) error {
 	if !ok {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
-	timeout := time.Second
-	filer := strings.Split(v.Options["filer"], ":")
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(filer[0], filer[1]), timeout)
+	var client = http.Client{
+		Transport: &http.Transport{
+			Dial: net.Dialer{Timeout: 2 * time.Second}.Dial,
+		},
+	}
+	url := "http://" + v.Options["filer"]
+	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return err
-	} else {
-		conn.Close()
 	}
+	_, err = client.Do(req)
+	if err != nil {
+		return err
+	}
+
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
 			os.MkdirAll(v.Mountpoint, 760)
