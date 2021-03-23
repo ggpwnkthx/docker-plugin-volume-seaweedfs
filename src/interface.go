@@ -59,10 +59,16 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
 	}
 	os.MkdirAll("/var/log", os.ModePerm)
-	stdout, _ := os.OpenFile("/var/log/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	stdout, err := os.OpenFile("/var/log/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
 	defer stdout.Close()
 	d.volumes[v.Name].CMD.Stdout = stdout
-	stderr, _ := os.OpenFile("/var/log/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	stderr, err := os.OpenFile("/var/log/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
 	defer stderr.Close()
 	d.volumes[v.Name].CMD.Stderr = stderr
 	d.volumes[v.Name].CMD.Start()
@@ -74,10 +80,18 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-	stdout, _ := ioutil.ReadFile("/var/log/" + v.Name + "_stdout")
-	v.Status["stdout"] = string(stdout)
-	stderr, _ := ioutil.ReadFile("/var/log/" + v.Name + "_stderr")
-	v.Status["stderr"] = string(stderr)
+	stdout, err := ioutil.ReadFile("/var/log/" + v.Name + "_stdout")
+	if err != nil {
+		v.Status["stdout"] = err
+	} else {
+		v.Status["stdout"] = string(stdout)
+	}
+	stderr, err := ioutil.ReadFile("/var/log/" + v.Name + "_stderr")
+	if err != nil {
+		v.Status["stderr"] = err
+	} else {
+		v.Status["stderr"] = string(stderr)
+	}
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
