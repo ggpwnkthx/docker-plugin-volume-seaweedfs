@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -20,7 +19,6 @@ type dockerVolume struct {
 	CMD                *exec.Cmd
 	stdout             *os.File
 	stderr             *os.File
-	logs               []string
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -58,21 +56,18 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		logs:        make([]string, 2),
 	}
 	os.MkdirAll("/var/log", os.ModePerm)
 	var err error
-	d.volumes[v.Name].stdout, err = os.OpenFile("/var/log/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	d.volumes[v.Name].stdout, err = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer d.volumes[v.Name].stdout.Close()
 	d.volumes[v.Name].CMD.Stdout = d.volumes[v.Name].stdout
-	d.volumes[v.Name].stderr, err = os.OpenFile("/var/log/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	d.volumes[v.Name].stderr, err = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer d.volumes[v.Name].stderr.Close()
 	d.volumes[v.Name].CMD.Stderr = d.volumes[v.Name].stderr
 	d.volumes[v.Name].CMD.Start()
 
@@ -82,14 +77,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
-	var stdout bytes.Buffer
-	stdout.ReadFrom(d.volumes[v.Name].stdout)
-	v.logs[0] = stdout.String()
-	var stderr bytes.Buffer
-	stderr.ReadFrom(d.volumes[v.Name].stderr)
-	v.logs[1] = stderr.String()
 	v.Status["weed"] = v.CMD
-	v.Status["logs"] = v.logs
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
