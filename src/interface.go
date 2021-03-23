@@ -81,10 +81,12 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	return nil
 }
 
-func (d *volumeDriver) getVolumeStatus(v *dockerVolume) interface{} {
+func (d *volumeDriver) getVolumeStatus(v *dockerVolume) map[string]interface{} {
 	d.sync.RLock()
 	defer d.sync.RUnlock()
-	return d.volumes[v.Name].Exec
+	var status map[string]interface{}
+	status["weed"] = d.volumes[v.Name].Exec
+	return status
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
