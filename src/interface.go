@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -18,8 +18,9 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	stdout             io.ReadCloser
-	stderr             io.ReadCloser
+	stdout             *os.File
+	stderr             *os.File
+	logs               []string
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -57,20 +58,22 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
+		logs:        make([]string, 2),
 	}
 	os.MkdirAll("/var/log", os.ModePerm)
-	stdout, err := os.OpenFile("/var/log/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	var err error
+	d.volumes[v.Name].stdout, err = os.OpenFile("/var/log/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer stdout.Close()
-	d.volumes[v.Name].CMD.Stdout = stdout
-	stderr, err := os.OpenFile("/var/log/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer d.volumes[v.Name].stdout.Close()
+	d.volumes[v.Name].CMD.Stdout = d.volumes[v.Name].stdout
+	d.volumes[v.Name].stderr, err = os.OpenFile("/var/log/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer stderr.Close()
-	d.volumes[v.Name].CMD.Stderr = stderr
+	defer d.volumes[v.Name].stderr.Close()
+	d.volumes[v.Name].CMD.Stderr = d.volumes[v.Name].stderr
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
@@ -80,18 +83,12 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-	stdout, err := ioutil.ReadFile("/var/log/" + v.Name + "_stdout")
-	if err != nil {
-		v.Status["stdout"] = err
-	} else {
-		v.Status["stdout"] = string(stdout)
-	}
-	stderr, err := ioutil.ReadFile("/var/log/" + v.Name + "_stderr")
-	if err != nil {
-		v.Status["stderr"] = err
-	} else {
-		v.Status["stderr"] = string(stderr)
-	}
+	var stdout bytes.Buffer
+	stdout.ReadFrom(d.volumes[v.Name].stdout)
+	v.logs[0] = stdout.String()
+	var stderr bytes.Buffer
+	stderr.ReadFrom(d.volumes[v.Name].stderr)
+	v.logs[1] = stderr.String()
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
