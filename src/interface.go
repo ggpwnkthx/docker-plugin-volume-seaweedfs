@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -70,18 +68,6 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-
-	stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
-	outbuf := new(bytes.Buffer)
-	outbuf.ReadFrom(stdout)
-	strout := fmt.Sprintf("%v", v.Status["stdout"]) + outbuf.String()
-	v.Status["stdout"] = strout
-
-	stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
-	errbuf := new(bytes.Buffer)
-	errbuf.ReadFrom(stderr)
-	strerr := fmt.Sprintf("%v", v.Status["stderr"]) + errbuf.String()
-	v.Status["stderr"] = strerr
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
