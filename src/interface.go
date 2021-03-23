@@ -67,14 +67,14 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		defer d.sync.Unlock()
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(stdout)
-		d.volumes[v.Name].Status["stdout"] = "" + d.volumes[v.Name].Status["stdout"] + buf.String()
+		d.volumes[v.Name].Status["stdout"] += buf.String()
 	}
 	go func() {
 		d.sync.Lock()
 		defer d.sync.Unlock()
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(stderr)
-		d.volumes[v.Name].Status["stderr"] = "" + d.volumes[v.Name].Status["stderr"] + buf.String()
+		d.volumes[v.Name].Status["stderr"] += buf.String()
 	}
 	d.volumes[v.Name].CMD.Start()
 
