@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -17,8 +18,8 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	stdout             string
-	stderr             string
+	stdout             io.ReadCloser
+	stderr             io.ReadCloser
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -56,9 +57,9 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		stdout:      "",
-		stderr:      "",
 	}
+	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
+	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
@@ -68,6 +69,14 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
+
+	outbuf := new(bytes.Buffer)
+	outbuf.ReadFrom(d.volumes[v.Name].stdout)
+	v.Status["stdout"] = outbuf.String()
+
+	errbuf := new(bytes.Buffer)
+	errbuf.ReadFrom(d.volumes[v.Name].stderr)
+	v.Status["stderr"] = errbuf.String()
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
