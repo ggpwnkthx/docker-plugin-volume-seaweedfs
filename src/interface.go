@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -19,7 +21,10 @@ type dockerVolume struct {
 	CMD                *exec.Cmd
 	stdout             io.ReadCloser
 	stderr             io.ReadCloser
-	logs               string
+	logs               struct {
+		out string
+		err string
+	}
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -57,7 +62,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		logs:        "",
+		logs: struct {
+			out string
+			err string
+		}{},
 	}
 	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
 	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
@@ -65,31 +73,24 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		return err
 	}
 	go func(d *volumeDriver, v *dockerVolume) {
-		buf := make([]byte, 80)
 		for {
-			n, err := d.volumes[v.Name].stdout.Read(buf)
-			if n > 0 {
-				d.sync.Lock()
-				d.volumes[v.Name].logs += string(buf[0:n])
-				d.sync.Unlock()
-			}
+			d.sync.Lock()
+			stdout, err := ioutil.ReadAll(d.volumes[v.Name].stdout)
 			if err != nil {
+				d.volumes[v.Name].logs.err += err.Error()
+				d.sync.Unlock()
 				break
 			}
-		}
-	}(d, v)
-	go func(d *volumeDriver, v *dockerVolume) {
-		buf := make([]byte, 80)
-		for {
-			n, err := d.volumes[v.Name].stderr.Read(buf)
-			if n > 0 {
-				d.sync.Lock()
-				d.volumes[v.Name].logs += string(buf[0:n])
-				d.sync.Unlock()
-			}
+			d.volumes[v.Name].logs.out += string(stdout)
+			stderr, err := ioutil.ReadAll(d.volumes[v.Name].stderr)
 			if err != nil {
+				d.volumes[v.Name].logs.err += err.Error()
+				d.sync.Unlock()
 				break
 			}
+			d.volumes[v.Name].logs.err += string(stderr)
+			d.sync.Unlock()
+			time.Sleep(2 * time.Second)
 		}
 	}(d, v)
 
