@@ -12,7 +12,7 @@ import (
 type volumeDriver struct {
 	propagatedMount string
 	volumes         map[string]*dockerVolume
-	sync            *sync.Mutex
+	sync            *sync.RWMutex
 }
 
 func newVolumeDriver(propagatedMount string) (*volumeDriver, error) {
@@ -20,7 +20,7 @@ func newVolumeDriver(propagatedMount string) (*volumeDriver, error) {
 	d := &volumeDriver{
 		propagatedMount: propagatedMount,
 		volumes:         map[string]*dockerVolume{},
-		sync:            &sync.Mutex{},
+		sync:            &sync.RWMutex{},
 	}
 	return d, nil
 }

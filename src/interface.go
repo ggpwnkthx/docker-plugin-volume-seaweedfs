@@ -17,12 +17,14 @@ type dockerVolume struct {
 	Name, Mountpoint   string
 	Status             map[string]interface{}
 	Connections, Tries int
-	CMD                *exec.Cmd
-	stdout             io.ReadCloser
-	stderr             io.ReadCloser
-	logs               struct {
-		out string
-		err string
+	Exec               struct {
+		CMD    *exec.Cmd
+		stdout io.ReadCloser
+		stderr io.ReadCloser
+		logs   struct {
+			out string
+			err string
+		}
 	}
 }
 
@@ -60,39 +62,24 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Status:      make(map[string]interface{}),
 		Connections: 0,
 		Tries:       0,
-		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		logs: struct {
-			out string
-			err string
-		}{},
+		Exec: struct {
+			CMD    *exec.Cmd
+			stdout io.ReadCloser
+			stderr io.ReadCloser
+			logs   struct {
+				out string
+				err string
+			}
+		}{
+			CMD: exec.Command("/usr/bin/weed", mOptions...),
+		},
 	}
-	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
-	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
-	if err := d.volumes[v.Name].CMD.Start(); err != nil {
+	d.volumes[v.Name].Exec.stdout, _ = d.volumes[v.Name].Exec.CMD.StdoutPipe()
+	d.volumes[v.Name].Exec.stderr, _ = d.volumes[v.Name].Exec.CMD.StderrPipe()
+	if err := d.volumes[v.Name].Exec.CMD.Start(); err != nil {
 		return err
 	}
-	go func(d *volumeDriver, v *dockerVolume) {
-		for {
-			if d.volumes[v.Name] != nil {
-				buf := make([]byte, 1024)
-				d.sync.Lock()
-				n, err := d.volumes[v.Name].stdout.Read(buf)
-				if err != nil {
-					d.volumes[v.Name].logs.err += err.Error()
-				}
-				d.volumes[v.Name].logs.out += string(buf[0:n])
-				n, err = d.volumes[v.Name].stderr.Read(buf)
-				if err != nil {
-					d.volumes[v.Name].logs.err += err.Error()
-				}
-				d.volumes[v.Name].logs.err += string(buf[0:n])
-				d.sync.Unlock()
-				time.Sleep(2 * time.Second)
-			} else {
-				break
-			}
-		}
-	}(d, v)
+	go manage(d, v)
 
 	return nil
 }
@@ -100,19 +87,18 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
-	v.Status["weed"] = v.CMD
-	v.Status["logs"] = v.logs
+	v.Status["weed"] = v.Exec
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
+	d.sync.RLock()
+	defer d.sync.RUnlock()
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
-		d.updateVolumeStatus(v)
 		volumes = append(volumes, &volume.Volume{
 			CreatedAt:  v.CreatedAt,
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
-			Status:     v.Status,
 		})
 	}
 	return volumes
@@ -146,14 +132,31 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	return nil
 }
 
-func copyLogs(r io.Reader, logfn func(args ...interface{})) {
-	buf := make([]byte, 80)
+func manage(d *volumeDriver, v *dockerVolume) {
 	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			logfn(buf[0:n])
-		}
-		if err != nil {
+		if d.volumes[v.Name] != nil {
+			buf := make([]byte, 1024)
+			d.sync.RLock()
+			n, err := d.volumes[v.Name].Exec.stdout.Read(buf)
+			d.sync.RUnlock()
+			d.sync.Lock()
+			if err != nil {
+				d.volumes[v.Name].Exec.logs.err += err.Error()
+			}
+			d.volumes[v.Name].Exec.logs.out += string(buf[0:n])
+			d.sync.Unlock()
+
+			d.sync.RLock()
+			n, err = d.volumes[v.Name].Exec.stderr.Read(buf)
+			d.sync.RUnlock()
+			d.sync.Lock()
+			if err != nil {
+				d.volumes[v.Name].Exec.logs.err += err.Error()
+			}
+			d.volumes[v.Name].Exec.logs.err += string(buf[0:n])
+			d.sync.Unlock()
+			time.Sleep(2 * time.Second)
+		} else {
 			break
 		}
 	}
