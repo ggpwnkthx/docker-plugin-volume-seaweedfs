@@ -8,13 +8,13 @@ import (
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
-type dockerVolume struct {
+type Volume struct {
 	Name, Mountpoint string
 	Options          map[string]string
 	CMD              *exec.Cmd
 }
 
-func (d *volumeDriver) createVolume(v *dockerVolume) error {
+func (d *Driver) createVolume(v *Volume) error {
 	_, ok := v.Options["filer"]
 	if !ok {
 		return errors.New("No filer name or address specified. No connection can be made.")
@@ -38,24 +38,17 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 			mOptions = append(mOptions, "-"+oKey)
 		}
 	}
-	d.volumes[v.Name] = &dockerVolume{
+	d.volumes[v.Name] = &Volume{
 		Options:    v.Options,
 		Name:       v.Name,
 		Mountpoint: v.Mountpoint,
 		CMD:        exec.Command("/usr/bin/weed", mOptions...),
 	}
-	//d.volumes[v.Name].CMD.Start()
 
 	return nil
 }
 
-func (d *volumeDriver) getVolumeStatus(v *dockerVolume) map[string]interface{} {
-	var status map[string]interface{}
-	status["weed"] = d.volumes[v.Name].CMD
-	return status
-}
-
-func (d *volumeDriver) listVolumes() []*volume.Volume {
+func (d *Driver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
 		volumes = append(volumes, &volume.Volume{
@@ -66,11 +59,11 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 	return volumes
 }
 
-func (d *volumeDriver) mountVolume(v *dockerVolume) error {
+func (d *Driver) mountVolume(v *Volume) error {
 	return nil
 }
 
-func (d *volumeDriver) removeVolume(v *dockerVolume) error {
+func (d *Driver) removeVolume(v *Volume) error {
 	err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
 	if err != nil {
 		return err
@@ -79,12 +72,12 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 	return nil
 }
 
-func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
+func (d *Driver) unmountVolume(v *Volume) error {
 	return nil
 }
 
 /*
-func manage(d *volumeDriver, v *dockerVolume) {
+func manage(d *Driver, v *Volume) {
 	if d.volumes[v.Name] != nil {
 		d.sync.RLock()
 		outbuf := make([]byte, 1024)

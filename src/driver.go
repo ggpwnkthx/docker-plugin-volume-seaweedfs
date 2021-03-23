@@ -6,22 +6,22 @@ import (
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
-type volumeDriver struct {
+type Driver struct {
 	propagatedMount string
-	volumes         map[string]*dockerVolume
+	volumes         map[string]*Volume
 }
 
-func newVolumeDriver(propagatedMount string) (*volumeDriver, error) {
-	d := &volumeDriver{
+func newVolumeDriver(propagatedMount string) (*Driver, error) {
+	d := &Driver{
 		propagatedMount: propagatedMount,
-		volumes:         map[string]*dockerVolume{},
+		volumes:         map[string]*Volume{},
 	}
 	return d, nil
 }
 
 // Get the list of capabilities the driver supports.
 // The driver is not required to implement Capabilities. If it is not implemented, the default values are used.
-func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
+func (d *Driver) Capabilities() *volume.CapabilitiesResponse {
 	return &volume.CapabilitiesResponse{Capabilities: volume.Capability{Scope: "global"}}
 }
 
@@ -29,10 +29,10 @@ func (d *volumeDriver) Capabilities() *volume.CapabilitiesResponse {
 // given a user specified volume name. The plugin does not need to actually
 // manifest the volume on the filesystem yet (until Mount is called).
 // Opts is a map of driver specific options passed through from the user request.
-func (d *volumeDriver) Create(r *volume.CreateRequest) error {
-	v := &dockerVolume{
+func (d *Driver) Create(r *volume.CreateRequest) error {
+	v := &Volume{
 		Name:       r.Name,
-		Mountpoint: filepath.Join(d.propagatedMount, r.Name),
+		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 	}
 	if err := d.createVolume(v); err != nil {
@@ -42,11 +42,11 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 }
 
 // Get info about volume_name.
-func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
+func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
-			Mountpoint: v.Mountpoint,
+			Mountpoint: v.Mountpoint, // "/path/under/PropogatedMount"
 		}}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
@@ -54,9 +54,8 @@ func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 }
 
 // List of volumes registered with the plugin.
-func (d *volumeDriver) List() (*volume.ListResponse, error) {
-	var vols = d.listVolumes()
-	return &volume.ListResponse{Volumes: vols}, nil
+func (d *Driver) List() (*volume.ListResponse, error) {
+	return &volume.ListResponse{Volumes: d.listVolumes()}, nil
 }
 
 // Mount is called once per container start.
@@ -65,7 +64,7 @@ func (d *volumeDriver) List() (*volume.ListResponse, error) {
 // deprovision at the last corresponding unmount request.
 // Docker requires the plugin to provide a volume, given a user specified volume name.
 // ID is a unique ID for the caller that is requesting the mount.
-func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
+func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		d.mountVolume(v)
 		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
@@ -75,7 +74,7 @@ func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, err
 }
 
 // Path requests the path to the volume with the given volume_name.
-func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
+func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
@@ -86,7 +85,7 @@ func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error)
 
 // Remove the specified volume from disk. This request is issued when a
 // user invokes docker rm -v to remove volumes associated with a container.
-func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
+func (d *Driver) Remove(r *volume.RemoveRequest) error {
 	if v, found := d.volumes[r.Name]; found {
 		err := d.removeVolume(v)
 		if err != nil {
@@ -102,7 +101,7 @@ func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 // Unmount is called once per container stop.
 // Plugin may deduce that it is safe to deprovision the volume at this point.
 // ID is a unique ID for the caller that is requesting the mount.
-func (d *volumeDriver) Unmount(r *volume.UnmountRequest) error {
+func (d *Driver) Unmount(r *volume.UnmountRequest) error {
 	if v, found := d.volumes[r.Name]; found {
 		return d.unmountVolume(v)
 	} else {
