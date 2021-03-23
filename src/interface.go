@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -77,8 +76,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	if err := d.volumes[v.Name].Exec.CMD.Start(); err != nil {
 		return err
 	}
-	time.Sleep(2 * time.Second)
-	go manage(d, v)
+	//go manage(d, v)
 
 	return nil
 }
