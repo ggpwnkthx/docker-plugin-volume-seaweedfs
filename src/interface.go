@@ -18,9 +18,6 @@ type dockerVolume struct {
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
-	d.sync.Lock()
-	defer d.sync.Unlock()
-
 	_, ok := v.Options["filer"]
 	if !ok {
 		return errors.New("No filer name or address specified. No connection can be made.")
@@ -58,16 +55,12 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) getVolumeStatus(v *dockerVolume) map[string]interface{} {
-	d.sync.RLock()
-	defer d.sync.RUnlock()
 	var status map[string]interface{}
 	status["weed"] = d.volumes[v.Name].CMD
 	return status
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
-	d.sync.RLock()
-	defer d.sync.RUnlock()
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
 		volumes = append(volumes, &volume.Volume{
@@ -80,15 +73,11 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	//d.sync.Lock()
-	//defer d.sync.Unlock()
-	//d.volumes[v.Name].Connections++
+	d.volumes[v.Name].Connections++
 	return nil
 }
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
-	d.sync.Lock()
-	defer d.sync.Unlock()
 	if d.volumes[v.Name].Connections < 1 {
 		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
 		if err != nil {
@@ -101,9 +90,7 @@ func (d *volumeDriver) removeVolume(v *dockerVolume) error {
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
-	//d.sync.Lock()
-	//defer d.sync.Unlock()
-	//d.volumes[v.Name].Connections--
+	d.volumes[v.Name].Connections--
 	return nil
 }
 
