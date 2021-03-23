@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -58,8 +58,13 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
 	}
-	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
-	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
+
+	stdout, _ := os.OpenFile("/var/logs/"+v.Name+"_stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer stdout.Close()
+	d.volumes[v.Name].CMD.Stdout = stdout
+	stderr, _ := os.OpenFile("/var/logs/"+v.Name+"_stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	defer stderr.Close()
+	d.volumes[v.Name].CMD.Stderr = stderr
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
@@ -69,14 +74,10 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-
-	outbuf := new(bytes.Buffer)
-	outbuf.ReadFrom(d.volumes[v.Name].stdout)
-	v.Status["stdout"] = outbuf.String()
-
-	errbuf := new(bytes.Buffer)
-	errbuf.ReadFrom(d.volumes[v.Name].stderr)
-	v.Status["stderr"] = errbuf.String()
+	stdout, _ := ioutil.ReadFile("/var/logs/" + v.Name + "_stdout")
+	v.Status["stdout"] = string(stdout)
+	stderr, _ := ioutil.ReadFile("/var/logs/" + v.Name + "_stderr")
+	v.Status["stderr"] = string(stderr)
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
