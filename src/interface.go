@@ -52,6 +52,15 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
 	}
+	var err error
+	d.volumes[v.Name].Status["Stdout"], err = d.volumes[v.Name].CMD.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	d.volumes[v.Name].Status["Stderr"], err = d.volumes[v.Name].CMD.StderrPipe()
+	if err != nil {
+		return err
+	}
 	d.volumes[v.Name].CMD.Start()
 
 	return nil
