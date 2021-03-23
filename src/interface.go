@@ -10,7 +10,6 @@ import (
 )
 
 type dockerVolume struct {
-	CreatedAt          string
 	Options            map[string]string
 	Name, Mountpoint   string
 	Connections, Tries int
@@ -64,7 +63,6 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
 		volumes = append(volumes, &volume.Volume{
-			CreatedAt:  v.CreatedAt,
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
 		})
