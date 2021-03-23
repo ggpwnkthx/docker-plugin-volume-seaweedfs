@@ -90,6 +90,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 			}
 		}
 	}()
+
 	return nil
 }
 
@@ -97,8 +98,7 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-	v.Status["stdout"] = v.stdout
-	v.Status["stderr"] = v.stderr
+	v.Status["logs"] = v.logs
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
