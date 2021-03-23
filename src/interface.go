@@ -2,8 +2,11 @@ package main
 
 import (
 	"errors"
+	"net"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -17,7 +20,15 @@ type Volume struct {
 func (d *Driver) createVolume(v *Volume) error {
 	_, ok := v.Options["filer"]
 	if !ok {
-		return errors.New("No filer name or address specified. No connection can be made.")
+		return errors.New("No filer address:port specified. No connection can be made.")
+	}
+	timeout := time.Second
+	filer := strings.Split(v.Options["filer"], ":")
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(filer[0], filer[1]), timeout)
+	if err != nil {
+		return err
+	} else {
+		conn.Close()
 	}
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
