@@ -82,13 +82,14 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
-	v.Status["weed"] = v.CMD
 	var stdout bytes.Buffer
 	stdout.ReadFrom(d.volumes[v.Name].stdout)
 	v.logs[0] = stdout.String()
 	var stderr bytes.Buffer
 	stderr.ReadFrom(d.volumes[v.Name].stderr)
 	v.logs[1] = stderr.String()
+	v.Status["weed"] = v.CMD
+	v.Status["logs"] = v.logs
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
