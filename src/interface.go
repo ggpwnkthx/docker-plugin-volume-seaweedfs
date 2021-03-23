@@ -104,6 +104,8 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
+	v.Status["stdout"] = string(v.stdout)
+	v.Status["stderr"] = string(v.stderr)
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
