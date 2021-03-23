@@ -17,8 +17,8 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	stdout             []byte
-	stderr             []byte
+	stdout             string
+	stderr             string
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -56,47 +56,40 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		stdout:      make([]byte, 0),
-		stderr:      make([]byte, 0),
+		stdout:      "",
+		stderr:      "",
 	}
-	os.MkdirAll("/var/log", os.ModePerm)
+	stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
+	stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
+	d.volumes[v.Name].CMD.Start()
 	go func() {
-		//d.volumes[v.Name].CMD.Stdout, _ = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stdout", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		//d.volumes[v.Name].CMD.Stderr, _ = os.OpenFile(d.volumes[v.Name].Mountpoint+"/stderr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
-		stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
-		d.volumes[v.Name].CMD.Start()
-		go func() {
-			buf := make([]byte, 80)
-			for {
-				n, err := stdout.Read(buf)
-				if n > 0 {
-					d.sync.Lock()
-					d.volumes[v.Name].stdout = append(d.volumes[v.Name].stdout, buf[0:n]...)
-					d.sync.Unlock()
-				}
-				if err != nil {
-					break
-				}
+		buf := make([]byte, 80)
+		for {
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				d.sync.Lock()
+				d.volumes[v.Name].stdout += string(buf[0:n])
+				d.sync.Unlock()
 			}
-		}()
-		go func() {
-			buf := make([]byte, 80)
-			for {
-				n, err := stderr.Read(buf)
-				if n > 0 {
-					d.sync.Lock()
-					d.volumes[v.Name].stderr = append(d.volumes[v.Name].stderr, buf[0:n]...)
-					d.sync.Unlock()
-				}
-				if err != nil {
-					break
-				}
+			if err != nil {
+				break
 			}
-		}()
-		d.volumes[v.Name].CMD.Wait()
+		}
 	}()
-
+	go func() {
+		buf := make([]byte, 80)
+		for {
+			n, err := stderr.Read(buf)
+			if n > 0 {
+				d.sync.Lock()
+				d.volumes[v.Name].stderr += string(buf[0:n])
+				d.sync.Unlock()
+			}
+			if err != nil {
+				break
+			}
+		}
+	}()
 	return nil
 }
 
@@ -104,8 +97,8 @@ func (d *volumeDriver) updateVolumeStatus(v *dockerVolume) {
 	d.sync.Lock()
 	defer d.sync.Unlock()
 	v.Status["weed"] = v.CMD
-	v.Status["stdout"] = string(v.stdout)
-	v.Status["stderr"] = string(v.stderr)
+	v.Status["stdout"] = v.stdout
+	v.Status["stderr"] = v.stderr
 }
 
 func (d *volumeDriver) listVolumes() []*volume.Volume {
