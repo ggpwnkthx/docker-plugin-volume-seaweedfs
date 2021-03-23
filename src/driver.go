@@ -53,8 +53,9 @@ func (d *volumeDriver) Create(r *volume.CreateRequest) error {
 func (d *volumeDriver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	logrus.WithField("method", "get").Debugf("%#v", r)
 	d.sync.RLock()
-	defer d.sync.RUnlock()
-	if v, found := d.volumes[r.Name]; found {
+	v, found := d.volumes[r.Name]
+	d.sync.RUnlock()
+	if found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
@@ -80,8 +81,9 @@ func (d *volumeDriver) List() (*volume.ListResponse, error) {
 func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	logrus.WithField("method", "mount").Debugf("%#v", r)
 	d.sync.RLock()
-	defer d.sync.RUnlock()
-	if v, found := d.volumes[r.Name]; found {
+	v, found := d.volumes[r.Name]
+	d.sync.RUnlock()
+	if found {
 		d.mountVolume(v)
 		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
@@ -93,8 +95,9 @@ func (d *volumeDriver) Mount(r *volume.MountRequest) (*volume.MountResponse, err
 func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	logrus.WithField("method", "path").Debugf("%#v", r)
 	d.sync.RLock()
-	defer d.sync.RUnlock()
-	if v, found := d.volumes[r.Name]; found {
+	v, found := d.volumes[r.Name]
+	d.sync.RUnlock()
+	if found {
 		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
 		return &volume.PathResponse{}, logError("volume %s not found", r.Name)
@@ -107,8 +110,9 @@ func (d *volumeDriver) Path(r *volume.PathRequest) (*volume.PathResponse, error)
 func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 	logrus.WithField("method", "remove").Debugf("%#v", r)
 	d.sync.RLock()
-	defer d.sync.RUnlock()
-	if v, found := d.volumes[r.Name]; found {
+	v, found := d.volumes[r.Name]
+	d.sync.RUnlock()
+	if found {
 		err := d.removeVolume(v)
 		if err != nil {
 			return logError(err.Error())
@@ -126,8 +130,9 @@ func (d *volumeDriver) Remove(r *volume.RemoveRequest) error {
 func (d *volumeDriver) Unmount(r *volume.UnmountRequest) error {
 	logrus.WithField("method", "unmount").Debugf("%#v", r)
 	d.sync.RLock()
-	defer d.sync.RUnlock()
-	if v, found := d.volumes[r.Name]; found {
+	v, found := d.volumes[r.Name]
+	d.sync.RUnlock()
+	if found {
 		return d.unmountVolume(v)
 	} else {
 		return logError("volume %s not found", r.Name)
