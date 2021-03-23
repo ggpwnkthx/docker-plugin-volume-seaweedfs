@@ -4,16 +4,14 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
 type dockerVolume struct {
-	Options            map[string]string
-	Name, Mountpoint   string
-	Connections, Tries int
-	CMD                *exec.Cmd
+	Name, Mountpoint string
+	Options          map[string]string
+	CMD              *exec.Cmd
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -41,14 +39,12 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		}
 	}
 	d.volumes[v.Name] = &dockerVolume{
-		Options:     v.Options,
-		Name:        v.Name,
-		Mountpoint:  v.Mountpoint,
-		Connections: 0,
-		Tries:       0,
-		CMD:         exec.Command("/usr/bin/weed", mOptions...),
+		Options:    v.Options,
+		Name:       v.Name,
+		Mountpoint: v.Mountpoint,
+		CMD:        exec.Command("/usr/bin/weed", mOptions...),
 	}
-	d.volumes[v.Name].CMD.Start()
+	//d.volumes[v.Name].CMD.Start()
 
 	return nil
 }
@@ -71,24 +67,19 @@ func (d *volumeDriver) listVolumes() []*volume.Volume {
 }
 
 func (d *volumeDriver) mountVolume(v *dockerVolume) error {
-	d.volumes[v.Name].Connections++
 	return nil
 }
 
 func (d *volumeDriver) removeVolume(v *dockerVolume) error {
-	if d.volumes[v.Name].Connections < 1 {
-		err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
-		if err != nil {
-			return err
-		}
-		delete(d.volumes, v.Name)
-		return nil
+	err := os.RemoveAll(d.volumes[v.Name].Mountpoint)
+	if err != nil {
+		return err
 	}
-	return errors.New("There are still " + strconv.Itoa(v.Connections) + " active connections.")
+	delete(d.volumes, v.Name)
+	return nil
 }
 
 func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
-	d.volumes[v.Name].Connections--
 	return nil
 }
 
