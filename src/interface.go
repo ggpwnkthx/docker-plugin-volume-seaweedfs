@@ -17,8 +17,9 @@ type dockerVolume struct {
 	Status             map[string]interface{}
 	Connections, Tries int
 	CMD                *exec.Cmd
-	stdout             string
-	stderr             string
+	stdout             io.ReadCloser
+	stderr             io.ReadCloser
+	logs               string
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -56,19 +57,18 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Connections: 0,
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
-		stdout:      "",
-		stderr:      "",
+		logs:        "",
 	}
-	stdout, _ := d.volumes[v.Name].CMD.StdoutPipe()
-	stderr, _ := d.volumes[v.Name].CMD.StderrPipe()
+	d.volumes[v.Name].stdout, _ = d.volumes[v.Name].CMD.StdoutPipe()
+	d.volumes[v.Name].stderr, _ = d.volumes[v.Name].CMD.StderrPipe()
 	d.volumes[v.Name].CMD.Start()
 	go func() {
 		buf := make([]byte, 80)
 		for {
-			n, err := stdout.Read(buf)
+			n, err := d.volumes[v.Name].stdout.Read(buf)
 			if n > 0 {
 				d.sync.Lock()
-				d.volumes[v.Name].stdout += string(buf[0:n])
+				d.volumes[v.Name].logs += string(buf[0:n])
 				d.sync.Unlock()
 			}
 			if err != nil {
@@ -79,10 +79,10 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	go func() {
 		buf := make([]byte, 80)
 		for {
-			n, err := stderr.Read(buf)
+			n, err := d.volumes[v.Name].stderr.Read(buf)
 			if n > 0 {
 				d.sync.Lock()
-				d.volumes[v.Name].stderr += string(buf[0:n])
+				d.volumes[v.Name].logs += string(buf[0:n])
 				d.sync.Unlock()
 			}
 			if err != nil {
