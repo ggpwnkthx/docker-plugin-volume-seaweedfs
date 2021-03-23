@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -73,22 +72,19 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		return err
 	}
 	go func(d *volumeDriver, v *dockerVolume) {
+		buf := make([]byte, 1024)
 		for {
 			d.sync.Lock()
-			stdout, err := ioutil.ReadAll(d.volumes[v.Name].stdout)
+			n, err := d.volumes[v.Name].stdout.Read(buf)
 			if err != nil {
 				d.volumes[v.Name].logs.err += err.Error()
-				d.sync.Unlock()
-				break
 			}
-			d.volumes[v.Name].logs.out += string(stdout)
-			stderr, err := ioutil.ReadAll(d.volumes[v.Name].stderr)
+			d.volumes[v.Name].logs.out += string(buf[0:n])
+			n, err = d.volumes[v.Name].stderr.Read(buf)
 			if err != nil {
 				d.volumes[v.Name].logs.err += err.Error()
-				d.sync.Unlock()
-				break
 			}
-			d.volumes[v.Name].logs.err += string(stderr)
+			d.volumes[v.Name].logs.err += string(buf[0:n])
 			d.sync.Unlock()
 			time.Sleep(2 * time.Second)
 		}
