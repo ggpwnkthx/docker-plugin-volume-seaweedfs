@@ -79,6 +79,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 	if err := d.volumes[v.Name].Exec.CMD.Start(); err != nil {
 		return err
 	}
+	time.Sleep(2 * time.Second)
 	go manage(d, v)
 
 	return nil
@@ -133,28 +134,22 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 }
 
 func manage(d *volumeDriver, v *dockerVolume) {
-	defer d.sync.Unlock()
-	for {
-		if d.volumes[v.Name] != nil {
-			d.sync.RLock()
-			outbuf := make([]byte, 1024)
-			outn, _ := d.volumes[v.Name].Exec.stdout.Read(outbuf)
-			errbuf := make([]byte, 1024)
-			errn, _ := d.volumes[v.Name].Exec.stderr.Read(errbuf)
-			d.sync.RUnlock()
-			if outn > 0 {
-				d.sync.Lock()
-				d.volumes[v.Name].Exec.logs.out += string(outbuf[0:outn])
-				d.sync.Unlock()
-			}
-			if errn > 0 {
-				d.sync.Lock()
-				d.volumes[v.Name].Exec.logs.err += string(errbuf[0:errn])
-				d.sync.Unlock()
-			}
-			time.Sleep(2 * time.Second)
-		} else {
-			break
+	if d.volumes[v.Name] != nil {
+		d.sync.RLock()
+		outbuf := make([]byte, 1024)
+		outn, _ := d.volumes[v.Name].Exec.stdout.Read(outbuf)
+		errbuf := make([]byte, 1024)
+		errn, _ := d.volumes[v.Name].Exec.stderr.Read(errbuf)
+		d.sync.RUnlock()
+		if outn > 0 {
+			d.sync.Lock()
+			d.volumes[v.Name].Exec.logs.out += string(outbuf[0:outn])
+			d.sync.Unlock()
+		}
+		if errn > 0 {
+			d.sync.Lock()
+			d.volumes[v.Name].Exec.logs.err += string(errbuf[0:errn])
+			d.sync.Unlock()
 		}
 	}
 }
