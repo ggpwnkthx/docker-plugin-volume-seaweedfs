@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -52,14 +54,27 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Tries:       0,
 		CMD:         exec.Command("/usr/bin/weed", mOptions...),
 	}
-	var err error
-	d.volumes[v.Name].Status["Stdout"], err = d.volumes[v.Name].CMD.StdoutPipe()
+	stdout, err := d.volumes[v.Name].CMD.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	d.volumes[v.Name].Status["Stderr"], err = d.volumes[v.Name].CMD.StderrPipe()
+	stderr, err := d.volumes[v.Name].CMD.StderrPipe()
 	if err != nil {
 		return err
+	}
+	go func() {
+		d.sync.Lock()
+		defer d.sync.Unlock()
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(stdout)
+		d.volumes[v.Name].Status["stdout"] = "" + d.volumes[v.Name].Status["stdout"] + buf.String()
+	}
+	go func() {
+		d.sync.Lock()
+		defer d.sync.Unlock()
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(stderr)
+		d.volumes[v.Name].Status["stderr"] = "" + d.volumes[v.Name].Status["stderr"] + buf.String()
 	}
 	d.volumes[v.Name].CMD.Start()
 
@@ -113,4 +128,17 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	defer d.sync.Unlock()
 	d.volumes[v.Name].Connections--
 	return nil
+}
+
+func copyLogs(r io.Reader, logfn func(args ...interface{})) {
+	buf := make([]byte, 80)
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			logfn(buf[0:n])
+		}
+		if err != nil {
+			break
+		}
+	}
 }
