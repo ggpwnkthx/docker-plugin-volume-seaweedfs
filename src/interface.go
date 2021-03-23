@@ -35,6 +35,7 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		}
 	}
 	mOptions := []string{
+		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
