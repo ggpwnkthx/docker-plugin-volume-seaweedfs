@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,15 +14,7 @@ type dockerVolume struct {
 	Options            map[string]string
 	Name, Mountpoint   string
 	Connections, Tries int
-	Exec               struct {
-		CMD    *exec.Cmd
-		stdout io.ReadCloser
-		stderr io.ReadCloser
-		logs   struct {
-			out string
-			err string
-		}
-	}
+	CMD                *exec.Cmd
 }
 
 func (d *volumeDriver) createVolume(v *dockerVolume) error {
@@ -59,21 +50,11 @@ func (d *volumeDriver) createVolume(v *dockerVolume) error {
 		Mountpoint:  v.Mountpoint,
 		Connections: 0,
 		Tries:       0,
-		Exec: struct {
-			CMD    *exec.Cmd
-			stdout io.ReadCloser
-			stderr io.ReadCloser
-			logs   struct {
-				out string
-				err string
-			}
-		}{
-			CMD: exec.Command("/usr/bin/weed", mOptions...),
-		},
+		CMD:         exec.Command("/usr/bin/weed", mOptions...),
 	}
-	d.volumes[v.Name].Exec.stdout, _ = d.volumes[v.Name].Exec.CMD.StdoutPipe()
-	d.volumes[v.Name].Exec.stderr, _ = d.volumes[v.Name].Exec.CMD.StderrPipe()
-	if err := d.volumes[v.Name].Exec.CMD.Start(); err != nil {
+	//d.volumes[v.Name].Exec.stdout, _ = d.volumes[v.Name].Exec.CMD.StdoutPipe()
+	//d.volumes[v.Name].Exec.stderr, _ = d.volumes[v.Name].Exec.CMD.StderrPipe()
+	if err := d.volumes[v.Name].CMD.Start(); err != nil {
 		return err
 	}
 	//go manage(d, v)
@@ -85,7 +66,7 @@ func (d *volumeDriver) getVolumeStatus(v *dockerVolume) map[string]interface{} {
 	d.sync.RLock()
 	defer d.sync.RUnlock()
 	var status map[string]interface{}
-	status["weed"] = d.volumes[v.Name].Exec
+	status["weed"] = d.volumes[v.Name].CMD
 	return status
 }
 
@@ -131,6 +112,7 @@ func (d *volumeDriver) unmountVolume(v *dockerVolume) error {
 	return nil
 }
 
+/*
 func manage(d *volumeDriver, v *dockerVolume) {
 	if d.volumes[v.Name] != nil {
 		d.sync.RLock()
@@ -151,3 +133,4 @@ func manage(d *volumeDriver, v *dockerVolume) {
 		}
 	}
 }
+*/
