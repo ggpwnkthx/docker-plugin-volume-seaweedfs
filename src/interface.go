@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,11 +26,16 @@ func (d *Driver) createVolume(v *Volume) error {
 		Timeout: time.Duration(3) * time.Second,
 	}
 	url := "http://" + v.Options["filer"]
-	resp, err := client.Head(url)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("Accept", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if body != nil {
+		return errors.New(string(body))
+	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
