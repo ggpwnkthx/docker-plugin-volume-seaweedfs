@@ -25,14 +25,11 @@ func (d *Driver) createVolume(v *Volume) error {
 		Timeout: time.Duration(3) * time.Second,
 	}
 	url := "http://" + v.Options["filer"]
-	req, err := http.NewRequest("HEAD", url, nil)
+	resp, err := client.Head(url)
 	if err != nil {
 		return err
 	}
-	_, err = client.Do(req)
-	if err != nil {
-		return err
-	}
+	resp.Body.Close()
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
