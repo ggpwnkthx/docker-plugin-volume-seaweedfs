@@ -26,12 +26,12 @@ func (d *Driver) createVolume(v *Volume) error {
 	filerHost := urlInstance.Hostname()
 	pinger, err := ping.NewPinger(filerHost)
 	if err != nil {
-		return err
+		return errors.New(filerHost + ": " + err.Error())
 	}
 	pinger.Count = 3
 	err = pinger.Run() // Blocks until finished.
 	if err != nil {
-		return err
+		return errors.New(filerHost + ": " + err.Error())
 	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
