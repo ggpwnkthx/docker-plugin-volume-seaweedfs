@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -23,9 +22,7 @@ func (d *Driver) createVolume(v *Volume) error {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
 	var client = http.Client{
-		Transport: &http.Transport{
-			Dial: net.Dialer{Timeout: 2 * time.Second}.Dial,
-		},
+		Timeout: time.Duration(3) * time.Second,
 	}
 	url := "http://" + v.Options["filer"]
 	req, err := http.NewRequest("HEAD", url, nil)
