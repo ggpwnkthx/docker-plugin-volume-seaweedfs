@@ -2,12 +2,12 @@ package main
 
 import (
 	"errors"
-	"net/url"
+	"net"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/docker/go-plugins-helpers/volume"
-	"github.com/go-ping/ping"
 )
 
 type Volume struct {
@@ -21,17 +21,40 @@ func (d *Driver) createVolume(v *Volume) error {
 	if !ok {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
-	filerUrl := "http://" + v.Options["filer"]
-	urlInstance, err := url.Parse(filerUrl)
-	filerHost := urlInstance.Hostname()
-	pinger, err := ping.NewPinger(filerHost)
+	/*
+		filerUrl := "http://" + v.Options["filer"]
+		urlInstance, err := url.Parse(filerUrl)
+		filerHost := urlInstance.Hostname()
+		pinger, err := ping.NewPinger(filerHost)
+		if err != nil {
+			return errors.New(filerHost + ": " + err.Error())
+		}
+		pinger.Count = 3
+		err = pinger.Run() // Blocks until finished.
+		if err != nil {
+			return errors.New(filerHost + ": " + err.Error())
+		}
+	*/
+	var logs []string
+	ifaces, err := net.Interfaces()
 	if err != nil {
-		return errors.New(filerHost + ": " + err.Error())
+		logs = append(logs, err.Error())
 	}
-	pinger.Count = 3
-	err = pinger.Run() // Blocks until finished.
-	if err != nil {
-		return errors.New(filerHost + ": " + err.Error())
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			logs = append(logs, err.Error())
+		}
+		for _, a := range addrs {
+			switch v := a.(type) {
+			case *net.IPAddr:
+				logs = append(logs, i.Name+" "+v.String()+" "+v.IP.DefaultMask().String())
+			}
+
+		}
+	}
+	if logs != nil {
+		return errors.New(strings.Join(logs[:], ","))
 	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
