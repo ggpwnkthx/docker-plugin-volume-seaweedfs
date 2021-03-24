@@ -32,7 +32,7 @@
         ]
     },
     "network": {
-        "type": "plugin-volume-seaweedfs"
+        "type": "bridge"
     },
     "propagatedMount": "/mnt"
 }

@@ -1,16 +1,13 @@
 package main
 
 import (
-	"context"
 	"errors"
-	"net"
 	"net/url"
 	"os"
 	"os/exec"
-	"strings"
-	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/go-ping/ping"
 )
 
 type Volume struct {
@@ -27,34 +24,19 @@ func (d *Driver) createVolume(v *Volume) error {
 	filerUrl := "http://" + v.Options["filer"]
 	urlInstance, err := url.Parse(filerUrl)
 	filerHost := urlInstance.Hostname()
-	r := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{
-				Timeout: time.Millisecond * time.Duration(10000),
-			}
-			return d.DialContext(ctx, "udp", "10.0.37.1:53")
-		},
-	}
-	ip, err := r.LookupHost(context.Background(), filerHost)
+	pinger, err := ping.NewPinger(filerHost)
 	if err != nil {
-		return err
+		return errors.New(filerHost + ": " + err.Error())
 	}
-	if ip != nil {
-		return errors.New(strings.Join(ip, "."))
+	pinger.Count = 3
+	err = pinger.Run() // Blocks until finished.
+	if err != nil {
+		return errors.New(filerHost + ": " + err.Error())
 	}
-	/*
-
-		pinger, err := ping.NewPinger(filerHost)
-		if err != nil {
-			return errors.New(filerHost + ": " + err.Error())
-		}
-		pinger.Count = 3
-		err = pinger.Run() // Blocks until finished.
-		if err != nil {
-			return errors.New(filerHost + ": " + err.Error())
-		}
-	*/
+	stats := pinger.Statistics()
+	if stats != nil {
+		return errors.New(stats)
+	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
