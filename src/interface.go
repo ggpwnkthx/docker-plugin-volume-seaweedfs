@@ -2,12 +2,12 @@ package main
 
 import (
 	"errors"
-	"io"
-	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/go-ping/ping"
 )
 
 type Volume struct {
@@ -21,17 +21,17 @@ func (d *Driver) createVolume(v *Volume) error {
 	if !ok {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
-	var client = &http.Client{}
-	url := "http://" + v.Options["filer"]
-	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Accept", "application/json")
-	resp, err := client.Do(req)
+	filerUrl := "http://" + v.Options["filer"]
+	urlInstance, err := url.Parse(filerUrl)
+	filerHost := urlInstance.Hostname()
+	pinger, err := ping.NewPinger(filerHost)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	body, _ := io.ReadAll(resp.Body)
-	if body != nil {
-		return errors.New(string(body))
+	pinger.Count = 3
+	err = pinger.Run() // Blocks until finished.
+	if err != nil {
+		panic(err)
 	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
