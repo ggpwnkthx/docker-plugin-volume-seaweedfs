@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -22,9 +21,7 @@ func (d *Driver) createVolume(v *Volume) error {
 	if !ok {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
-	var client = http.Client{
-		Timeout: time.Duration(3) * time.Second,
-	}
+	var client = &http.Client{}
 	url := "http://" + v.Options["filer"]
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", "application/json")
