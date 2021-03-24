@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -21,10 +24,27 @@ func (d *Driver) createVolume(v *Volume) error {
 	if !ok {
 		return errors.New("No filer address:port specified. No connection can be made.")
 	}
+	filerUrl := "http://" + v.Options["filer"]
+	urlInstance, err := url.Parse(filerUrl)
+	filerHost := urlInstance.Hostname()
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Millisecond * time.Duration(10000),
+			}
+			return d.DialContext(ctx, "udp", "10.0.37.1:53")
+		},
+	}
+	ip, err := r.LookupHost(context.Background(), filerHost)
+	if err != nil {
+		return err
+	}
+	if ip != nil {
+		return errors.New(strings.Join(ip, "."))
+	}
 	/*
-		filerUrl := "http://" + v.Options["filer"]
-		urlInstance, err := url.Parse(filerUrl)
-		filerHost := urlInstance.Hostname()
+
 		pinger, err := ping.NewPinger(filerHost)
 		if err != nil {
 			return errors.New(filerHost + ": " + err.Error())
@@ -35,27 +55,6 @@ func (d *Driver) createVolume(v *Volume) error {
 			return errors.New(filerHost + ": " + err.Error())
 		}
 	*/
-	var logs []string
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		logs = append(logs, err.Error())
-	}
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			logs = append(logs, err.Error())
-		}
-		for _, a := range addrs {
-			switch v := a.(type) {
-			case *net.IPAddr:
-				logs = append(logs, i.Name+" "+v.String()+" "+v.IP.DefaultMask().String())
-			}
-
-		}
-	}
-	if logs != nil {
-		return errors.New(strings.Join(logs[:], ","))
-	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
 		if os.IsNotExist(err) {
