@@ -35,7 +35,7 @@ func (d *Driver) createVolume(v *Volume) error {
 	}
 	stats := pinger.Statistics()
 	if stats != nil {
-		return errors.New(stats)
+		return errors.New(stats.Addr + ": sent " + string(stats.PacketsSent) + " recv " + string(stats.PacketsRecv) + " loss " + string(stats.PacketsLoss))
 	}
 
 	if _, err := os.Stat(v.Mountpoint); err != nil {
