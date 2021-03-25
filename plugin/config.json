@@ -32,13 +32,18 @@
     },
     "mounts": [
         {
-            "source": "/run/docker/plugins/seaweedfs/",
-            "destination": "/run/docker/plugins/seaweedfs/"
+          "destination": "/run/docker/plugins/",
+          "options": [
+            "rbind"
+          ],
+          "name": "socks",
+          "source": "/run/docker/plugins/",
+          "settable": [
+            "source"
+          ],
+          "type": "bind"
         }
     ],
-    "network": {
-        "type": "plugin-volume-seaweedfs"
-    },
     "propagatedMount": "/mnt",
     "workdir": "/"
 }
