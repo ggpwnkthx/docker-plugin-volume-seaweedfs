@@ -48,10 +48,15 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"unix:" + v.Sock,
 	}
 	v.socat = exec.Command("/usr/bin/socat", sOptions...)
-	err = v.socat.Start()
-	if err != nil {
-		return errors.New("socat: " + err.Error())
-	}
+	go func() {
+		socatout, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.out")
+		defer socatout.Close()
+		v.socat.Stdout = socatout
+		socaterr, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.err")
+		defer socaterr.Close()
+		v.socat.Stdout = socaterr
+		v.socat.Run()
+	}()
 
 	mOptions := []string{
 		"mount",
@@ -69,10 +74,15 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 	}
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
-	err = v.weed.Start()
-	if err != nil {
-		return errors.New("weed: " + err.Error())
-	}
+	go func() {
+		weedout, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/" + v.Name + ".out")
+		defer weedout.Close()
+		v.weed.Stdout = weedout
+		weederr, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/" + v.Name + ".err")
+		defer weederr.Close()
+		v.weed.Stderr = weederr
+		v.socat.Run()
+	}()
 	d.volumes[r.Name] = v
 
 	return nil
