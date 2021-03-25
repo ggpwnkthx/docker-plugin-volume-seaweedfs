@@ -32,12 +32,12 @@
     },
     "mounts": [
         {
-          "destination": "/run/docker/plugins/seaweedfs",
+          "destination": "/var/run/docker/plugins/seaweedfs",
           "options": [
             "rbind"
           ],
           "name": "socks",
-          "source": "/run/docker/plugins/seaweedfs",
+          "source": "/var/run/docker/plugins/seaweedfs",
           "settable": [
             "source"
           ],
