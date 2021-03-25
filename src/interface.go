@@ -29,7 +29,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	}
 	port, err := freeport.GetFreePort()
 	if err != nil {
-		return err
+		return errors.New("freeport: " + err.Error())
 	}
 
 	v := &Volume{
@@ -39,7 +39,10 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Port:       port,
 	}
 	v.Processes["socat"] = exec.Command("socat", "tcp-l:localhost:"+strconv.Itoa(v.Port)+",fork", "unix:/run/seaweedfs/"+v.Name+"/filer.sock")
-	v.Processes["socat"].Start()
+	err = v.Processes["socat"].Start()
+	if err != nil {
+		return errors.New("socat: " + err.Error())
+	}
 	delete(r.Options, "filer")
 
 	mOptions := []string{
@@ -58,7 +61,10 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 	}
 	v.Processes["weed"] = exec.Command("/usr/bin/weed", mOptions...)
-	v.Processes["weed"].Start()
+	err = v.Processes["weed"].Start()
+	if err != nil {
+		return errors.New("weed: " + err.Error())
+	}
 	d.volumes[r.Name] = v
 
 	return nil
