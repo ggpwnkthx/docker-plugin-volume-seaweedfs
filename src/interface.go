@@ -17,8 +17,9 @@ type Volume struct {
 	Mountpoint, Name string
 	Options          map[string]string
 	Port             int
-	Processes        map[string]*exec.Cmd
+	socat            *exec.Cmd
 	Sock             string
+	weed             *exec.Cmd
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -46,12 +47,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
 		"unix:" + v.Sock,
 	}
-	v.Processes["socat"] = exec.Command("ls", "/")
-	if err == nil {
-		return errors.New("socat: declared")
-	}
-	v.Processes["socat"] = exec.Command("/usr/bin/socat", sOptions...)
-	err = v.Processes["socat"].Start()
+	v.socat = exec.Command("/usr/bin/socat", sOptions...)
+	err = v.socat.Start()
 	if err != nil {
 		return errors.New("socat: " + err.Error())
 	}
@@ -71,8 +68,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 			mOptions = append(mOptions, "-"+oKey)
 		}
 	}
-	v.Processes["weed"] = exec.Command("/usr/bin/weed", mOptions...)
-	err = v.Processes["weed"].Start()
+	v.weed = exec.Command("/usr/bin/weed", mOptions...)
+	err = v.weed.Start()
 	if err != nil {
 		return errors.New("weed: " + err.Error())
 	}
