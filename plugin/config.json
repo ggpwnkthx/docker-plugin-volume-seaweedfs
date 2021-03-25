@@ -32,8 +32,8 @@
     },
     "mounts": [
         {
-            "source": "/run/docker",
-            "destination": "/run/docker",
+            "source": "/var/run/docker/plugins/seaweedfs",
+            "destination": "/run/docker/plugins/seaweedfs",
             "type": "bind"
         }
     ],
