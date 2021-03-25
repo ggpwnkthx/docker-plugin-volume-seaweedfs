@@ -49,7 +49,10 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"unix:" + v.Sock,
 	}
 	v.socat = exec.Command("/usr/bin/socat", sOptions...)
-	socatout, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.out")
+	socatout, err := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.out")
+	if err != nil {
+		return errors.New("filer.socat.out: " + err.Error())
+	}
 	v.socat.Stdout = socatout
 	socaterr, _ := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.err")
 	v.socat.Stdout = socaterr
