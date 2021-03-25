@@ -44,6 +44,9 @@
           "type": "bind"
         }
     ],
+    "network": {
+        "type": "bridge"
+    },
     "propagatedMount": "/mnt",
     "workdir": "/"
 }
