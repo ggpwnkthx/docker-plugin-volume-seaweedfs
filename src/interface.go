@@ -12,20 +12,17 @@ import (
 )
 
 type Volume struct {
-	Name, Mountpoint string
+	Mountpoint, Name string
 	Options          map[string]string
-	Filer            struct {
-		hostname string
-		port     int
-	}
-	Port      int
-	Processes map[string]*exec.Cmd
+	Port             int
+	Processes        map[string]*exec.Cmd
+	Sock             string
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	_, ok := r.Options["filer"]
-	if !ok {
-		return errors.New("no filer address:port specified")
+	if ok {
+		delete(r.Options, "filer")
 	}
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -33,24 +30,24 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	}
 
 	v := &Volume{
+		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 		Name:       r.Name,
-		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Port:       port,
+		Sock:       "/var/run/docker/plugins/seaweedfs/" + r.Name + "/filer.sock",
 	}
-	v.Processes["socat"] = exec.Command("socat", "tcp-l:localhost:"+strconv.Itoa(v.Port)+",fork", "unix:/run/seaweedfs/"+v.Name+"/filer.sock")
+	v.Processes["socat"] = exec.Command("socat", "tcp-l:127.0.0.1:"+strconv.Itoa(v.Port)+",fork", "unix:"+v.Sock)
 	err = v.Processes["socat"].Start()
 	if err != nil {
 		return errors.New("socat: " + err.Error())
 	}
-	delete(r.Options, "filer")
 
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
-		"-filer=localhost:" + strconv.Itoa(v.Port),
+		"-filer=127.0.0.1:" + strconv.Itoa(v.Port),
 		"-volumeServerAccess=filerProxy",
 	}
 	for oKey, oValue := range r.Options {
