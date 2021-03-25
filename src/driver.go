@@ -6,12 +6,14 @@ import (
 
 type Driver struct {
 	propagatedMount string
+	socketMount     string
 	volumes         map[string]*Volume
 }
 
 func newVolumeDriver(propagatedMount string) (*Driver, error) {
 	d := &Driver{
 		propagatedMount: propagatedMount,
+		socketMount:     "/var/lib/docker/plugins/seaweedfs/",
 		volumes:         map[string]*Volume{},
 	}
 	return d, nil
