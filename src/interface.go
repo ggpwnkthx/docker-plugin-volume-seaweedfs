@@ -33,9 +33,6 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	if err != nil {
 		return errors.New("freeport: " + err.Error())
 	}
-	if err == nil {
-		return errors.New("freeport: started")
-	}
 
 	v := &Volume{
 		Filer:      filer,
@@ -44,6 +41,9 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Name:       r.Name,
 		Port:       port,
 		Sock:       "/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.sock",
+	}
+	if err == nil {
+		return errors.New("volume: declared")
 	}
 	v.Processes["socat"] = exec.Command("socat", "tcp-l:127.0.0.1:"+strconv.Itoa(v.Port)+",fork", "unix:"+v.Sock)
 	err = v.Processes["socat"].Start()
