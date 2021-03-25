@@ -42,16 +42,15 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Port:       port,
 		Sock:       "/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.sock",
 	}
-	/*
-		sOptions := []string{
-			"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
-			"unix:" + v.Sock,
-		}
-	*/
-	v.Processes["socat"] = exec.Command("which", "socat")
+	sOptions := []string{
+		"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
+		"unix:" + v.Sock,
+	}
+	v.Processes["socat"] = exec.Command("ls", "/")
 	if err == nil {
 		return errors.New("socat: declared")
 	}
+	v.Processes["socat"] = exec.Command("/usr/bin/socat", sOptions...)
 	err = v.Processes["socat"].Start()
 	if err != nil {
 		return errors.New("socat: " + err.Error())
