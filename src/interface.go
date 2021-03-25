@@ -48,6 +48,14 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
 		"unix:" + v.Sock,
 	}
+	if err == nil {
+		ls := exec.Command("ls", "/var/run/docker/plugins")
+		ls_out, err := ls.CombinedOutput()
+		if err != nil {
+			return err
+		}
+		return errors.New(string(ls_out))
+	}
 	v.socat = exec.Command("/usr/bin/socat", sOptions...)
 	socatout, err := os.Create("/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.socat.out")
 	if err != nil {
