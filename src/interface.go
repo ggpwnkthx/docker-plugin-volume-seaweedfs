@@ -6,12 +6,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
 )
 
 type Volume struct {
+	Filer            []string
 	Mountpoint, Name string
 	Options          map[string]string
 	Port             int
@@ -21,28 +23,32 @@ type Volume struct {
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	_, ok := r.Options["filer"]
-	if ok {
-		delete(r.Options, "filer")
+	if !ok {
+		return errors.New("no filer address:port specified")
 	}
+	filer := strings.Split(r.Options["filer"], ":")
+	delete(r.Options, "filer")
+
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		return errors.New("freeport: " + err.Error())
 	}
+	if err == nil {
+		return errors.New("freeport: started")
+	}
 
 	v := &Volume{
+		Filer:      filer,
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 		Name:       r.Name,
 		Port:       port,
-		Sock:       "/var/run/docker/plugins/seaweedfs/" + r.Name + "/filer.sock",
+		Sock:       "/var/run/docker/plugins/seaweedfs/" + filer[0] + "/filer.sock",
 	}
 	v.Processes["socat"] = exec.Command("socat", "tcp-l:127.0.0.1:"+strconv.Itoa(v.Port)+",fork", "unix:"+v.Sock)
 	err = v.Processes["socat"].Start()
 	if err != nil {
 		return errors.New("socat: " + err.Error())
-	}
-	if err == nil {
-		return errors.New("socat: started")
 	}
 
 	mOptions := []string{
