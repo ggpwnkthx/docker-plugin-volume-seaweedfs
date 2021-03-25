@@ -41,6 +41,9 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	if err != nil {
 		return errors.New("socat: " + err.Error())
 	}
+	if err == nil {
+		return errors.New("socat: started")
+	}
 
 	mOptions := []string{
 		"mount",
