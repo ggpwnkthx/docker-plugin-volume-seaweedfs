@@ -38,7 +38,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Port:       port,
 	}
-	v.Processes["socat"] = exec.Command("socat", "tcp-l:localhost:"+strconv.Itoa(v.Port)+",fork", "unix:/run/docker/plugins/seaweedfs/"+v.Name)
+	v.Processes["socat"] = exec.Command("socat", "tcp-l:localhost:"+strconv.Itoa(v.Port)+",fork", "unix:/run/docker/plugins/seaweedfs/"+v.Name+"/filer.sock")
 	v.Processes["socat"].Start()
 	delete(r.Options, "filer")
 
