@@ -46,7 +46,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
 		"unix:" + v.Sock,
 	}
-	v.Processes["socat"] = exec.Command("socat", sOptions...)
+	v.Processes["socat"] = exec.Command("/usr/bin/socat", sOptions...)
 	if err == nil {
 		return errors.New("socat: declared")
 	}
