@@ -1,8 +1,6 @@
 package main
 
 import (
-	"path/filepath"
-
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -30,12 +28,7 @@ func (d *Driver) Capabilities() *volume.CapabilitiesResponse {
 // manifest the volume on the filesystem yet (until Mount is called).
 // Opts is a map of driver specific options passed through from the user request.
 func (d *Driver) Create(r *volume.CreateRequest) error {
-	v := &Volume{
-		Name:       r.Name,
-		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
-		Options:    r.Options,
-	}
-	if err := d.createVolume(v); err != nil {
+	if err := d.createVolume(r); err != nil {
 		return err
 	}
 	return nil

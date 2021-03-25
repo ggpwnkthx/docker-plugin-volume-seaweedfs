@@ -2,67 +2,64 @@ package main
 
 import (
 	"errors"
-	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
-	"github.com/go-ping/ping"
+	"github.com/phayes/freeport"
 )
 
 type Volume struct {
 	Name, Mountpoint string
 	Options          map[string]string
-	CMD              *exec.Cmd
+	Filer            struct {
+		hostname string
+		port     int
+	}
+	Port      int
+	Processes map[string]*exec.Cmd
 }
 
-func (d *Driver) createVolume(v *Volume) error {
-	_, ok := v.Options["filer"]
+func (d *Driver) createVolume(r *volume.CreateRequest) error {
+	_, ok := r.Options["filer"]
 	if !ok {
-		return errors.New("No filer address:port specified. No connection can be made.")
+		return errors.New("no filer address:port specified")
 	}
-	filerUrl := "http://" + v.Options["filer"]
-	urlInstance, err := url.Parse(filerUrl)
-	filerHost := urlInstance.Hostname()
-	pinger, err := ping.NewPinger(filerHost)
+	port, err := freeport.GetFreePort()
 	if err != nil {
-		return errors.New(filerHost + ": " + err.Error())
-	}
-	pinger.Count = 3
-	err = pinger.Run() // Blocks until finished.
-	if err != nil {
-		return errors.New(filerHost + ": " + err.Error())
-	}
-	stats := pinger.Statistics()
-	if stats != nil {
-		return errors.New(stats.Addr + ": sent " + string(stats.PacketsSent) + " recv " + string(stats.PacketsRecv))
+		return err
 	}
 
-	if _, err := os.Stat(v.Mountpoint); err != nil {
-		if os.IsNotExist(err) {
-			os.MkdirAll(v.Mountpoint, 760)
-		}
+	v := &Volume{
+		Options:    r.Options,
+		Name:       r.Name,
+		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
+		Port:       port,
 	}
+	v.Processes["socat"] = exec.Command("socat", "tcp-l:localhost:"+strconv.Itoa(v.Port)+",fork", "unix:/run/docker/plugins/seaweedfs/"+v.Name)
+	v.Processes["socat"].Start()
+	delete(r.Options, "filer")
+
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
+		"-filer=localhost:" + strconv.Itoa(v.Port),
 		"-volumeServerAccess=filerProxy",
 	}
-	for oKey, oValue := range v.Options {
+	for oKey, oValue := range r.Options {
 		if oValue != "" {
 			mOptions = append(mOptions, "-"+oKey+"="+oValue)
 		} else {
 			mOptions = append(mOptions, "-"+oKey)
 		}
 	}
-	d.volumes[v.Name] = &Volume{
-		Options:    v.Options,
-		Name:       v.Name,
-		Mountpoint: v.Mountpoint,
-		CMD:        exec.Command("/usr/bin/weed", mOptions...),
-	}
+	v.Processes["weed"] = exec.Command("/usr/bin/weed", mOptions...)
+	v.Processes["weed"].Start()
+	d.volumes[r.Name] = v
 
 	return nil
 }

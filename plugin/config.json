@@ -1,7 +1,6 @@
 {
     "description": "A generalized SeaweedFS Docker Volume plugin",
     "documentation": "https://docs.docker.com/engine/extend/config/",
-    "workdir": "/",
     "entrypoint": [
         "/bin/docker-plugin-volume"
     ],
@@ -31,8 +30,16 @@
             }
         ]
     },
+    "mounts": [
+        {
+            "source": "/run/docker/plugins/seaweedfs",
+            "destination": "/run/docker/plugins/seaweedfs",
+            "type": "bind"
+        }
+    ],
     "network": {
         "type": "plugin-volume-seaweedfs"
     },
-    "propagatedMount": "/mnt"
+    "propagatedMount": "/mnt",
+    "workdir": "/"
 }
