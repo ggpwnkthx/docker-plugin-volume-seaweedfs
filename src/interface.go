@@ -91,26 +91,3 @@ func (d *Driver) removeVolume(v *Volume) error {
 func (d *Driver) unmountVolume(v *Volume) error {
 	return nil
 }
-
-/*
-func manage(d *Driver, v *Volume) {
-	if d.volumes[v.Name] != nil {
-		d.sync.RLock()
-		outbuf := make([]byte, 1024)
-		outn, _ := d.volumes[v.Name].Exec.stdout.Read(outbuf)
-		errbuf := make([]byte, 1024)
-		errn, _ := d.volumes[v.Name].Exec.stderr.Read(errbuf)
-		d.sync.RUnlock()
-		if outn > 0 {
-			d.sync.Lock()
-			d.volumes[v.Name].Exec.logs.out += string(outbuf[0:outn])
-			d.sync.Unlock()
-		}
-		if errn > 0 {
-			d.sync.Lock()
-			d.volumes[v.Name].Exec.logs.err += string(errbuf[0:errn])
-			d.sync.Unlock()
-		}
-	}
-}
-*/
