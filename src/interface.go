@@ -51,8 +51,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	s := d.socats[filer[0]]
-	if s == nil {
+	_, ok = d.socats[filer[0]]
+	if !ok {
 		port, err := freeport.GetFreePort()
 		if err != nil {
 			return errors.New("freeport: " + err.Error())
@@ -61,17 +61,15 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 			Port:     port,
 			SockPath: d.socketMount + filer[0],
 		}
-		d.socats[filer[0]] = s
-	}
-
-	if s.Cmd == nil {
 		sOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:127.0.0.1:" + strconv.Itoa(d.socats[filer[0]].Port) + ",fork",
-			"unix:" + d.socats[filer[0]].SockPath + "/filer.sock",
+			"tcp-l:127.0.0.1:" + strconv.Itoa(s.Port) + ",fork",
+			"unix:" + s.SockPath + "/filer.sock",
 		}
 		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
 		s.Cmd.Start()
+
+		d.socats[filer[0]] = s
 	}
 
 	v := &Volume{
@@ -79,7 +77,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 		Name:       r.Name,
-		socat:      s,
+		socat:      d.socats[filer[0]],
 	}
 	mOptions := []string{
 		"mount",
