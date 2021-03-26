@@ -12,13 +12,19 @@ import (
 	"github.com/phayes/freeport"
 )
 
+type Socat struct {
+	Cmd      *exec.Cmd
+	Port     int
+	SockPath string
+}
+
+var socats map[string]Socat
+
 type Volume struct {
 	Filer            []string
 	Mountpoint, Name string
 	Options          map[string]string
-	Port             int
-	socat            *exec.Cmd
-	Sock             string
+	socat            Socat
 	weed             *exec.Cmd
 }
 
@@ -30,9 +36,26 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		return errors.New("freeport: " + err.Error())
+	_, ok = socats[filer[0]]
+	if !ok {
+		port, err := freeport.GetFreePort()
+		if err != nil {
+			return errors.New("freeport: " + err.Error())
+		}
+		socats[filer[0]] = Socat{
+			Port:     port,
+			SockPath: d.socketMount + filer[0],
+		}
+	}
+	s := socats[filer[0]]
+	if s.Cmd == nil {
+		sOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:127.0.0.1:" + strconv.Itoa(socats[filer[0]].Port) + ",fork",
+			"unix:" + socats[filer[0]].SockPath + "/filer.sock",
+		}
+		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
+		s.Cmd.Start()
 	}
 
 	v := &Volume{
@@ -40,38 +63,14 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 		Name:       r.Name,
-		Port:       port,
-		Sock:       d.socketMount + filer[0] + "/filer.sock",
+		socat:      s,
 	}
-	sOptions := []string{
-		"-d", "-d", "-d",
-		"tcp-l:127.0.0.1:" + strconv.Itoa(v.Port) + ",fork",
-		"unix:" + v.Sock,
-	}
-	if err == nil {
-		ls := exec.Command("ls", "/var/lib/docker/plugins")
-		ls_out, err := ls.CombinedOutput()
-		if err != nil {
-			return err
-		}
-		return errors.New(string(ls_out))
-	}
-	v.socat = exec.Command("/usr/bin/socat", sOptions...)
-	socatout, err := os.Create(d.socketMount + filer[0] + "/filer.socat.out")
-	if err != nil {
-		return errors.New("filer.socat.out: " + err.Error())
-	}
-	v.socat.Stdout = socatout
-	socaterr, _ := os.Create(d.socketMount + filer[0] + "/filer.socat.err")
-	v.socat.Stdout = socaterr
-	v.socat.Start()
-
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
-		"-filer=127.0.0.1:" + strconv.Itoa(v.Port),
+		"-filer=127.0.0.1:" + strconv.Itoa(v.socat.Port),
 		"-volumeServerAccess=filerProxy",
 	}
 	for oKey, oValue := range r.Options {
@@ -82,10 +81,6 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 	}
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
-	weedout, _ := os.Create(d.socketMount + filer[0] + "/" + v.Name + ".out")
-	v.weed.Stdout = weedout
-	weederr, _ := os.Create(d.socketMount + filer[0] + "/" + v.Name + ".err")
-	v.weed.Stderr = weederr
 	v.weed.Start()
 
 	d.volumes[r.Name] = v
