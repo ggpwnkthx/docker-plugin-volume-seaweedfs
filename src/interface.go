@@ -49,40 +49,43 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	_, ok = d.filers[filer[0]]
 	if !ok {
 		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, filer[0]), os.ModeDir)
-
 		port, err := freeport.GetFreePort()
 		if err != nil {
 			return errors.New("freeport: " + err.Error())
 		}
-		http := &Socat{
-			Port: port,
-			Sock: filepath.Join(d.socketMount, filer[0], "http.sock"),
+
+		socats := &Filer{
+			http: &Socat{
+				Port: port,
+				Sock: filepath.Join(d.socketMount, filer[0], "http.sock"),
+			},
+			grpc: &Socat{
+				Port: port + 10000,
+				Sock: filepath.Join(d.socketMount, filer[0], "grpc.sock"),
+			},
 		}
+
 		httpOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(http.Port) + ",fork",
-			"unix:" + http.Sock,
+			"tcp-l:" + strconv.Itoa(socats.http.Port) + ",fork",
+			"unix:" + socats.http.Sock,
 		}
-		http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-		http.Cmd.Stderr = d.Stderr
-		http.Cmd.Stdout = d.Stdout
-		d.filers[filer[0]].http = http
-		d.filers[filer[0]].http.Cmd.Start()
+		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+		socats.http.Cmd.Stderr = d.Stderr
+		socats.http.Cmd.Stdout = d.Stdout
+		socats.http.Cmd.Start()
 
-		grpc := &Socat{
-			Port: port + 10000,
-			Sock: filepath.Join(d.socketMount, filer[0], "grpc.sock"),
-		}
 		grpcOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(grpc.Port) + ",fork",
-			"unix:" + grpc.Sock,
+			"tcp-l:" + strconv.Itoa(socats.grpc.Port) + ",fork",
+			"unix:" + socats.grpc.Sock,
 		}
-		grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-		grpc.Cmd.Stderr = d.Stderr
-		grpc.Cmd.Stdout = d.Stdout
-		d.filers[filer[0]].grpc = grpc
-		d.filers[filer[0]].grpc.Cmd.Start()
+		socats.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+		socats.grpc.Cmd.Stderr = d.Stderr
+		socats.grpc.Cmd.Stdout = d.Stdout
+		socats.grpc.Cmd.Start()
+
+		d.filers[filer[0]] = socats
 	}
 
 	v := &Volume{
