@@ -27,6 +27,7 @@ func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint, // "/path/under/PropogatedMount"
+			Status:     d.getVolumeStatus(v),
 		}}, nil
 	} else {
 		return &volume.GetResponse{}, logError("volume %s not found", r.Name)

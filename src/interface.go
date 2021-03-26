@@ -106,6 +106,13 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	return nil
 }
 
+func (d *Driver) getVolumeStatus(v *Volume) interface{} {
+	status := make(map[string]interface{})
+	status["socat"] = v.socat
+	status["weed"] = v.weed
+	return status
+}
+
 func (d *Driver) listVolumes() []*volume.Volume {
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
