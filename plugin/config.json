@@ -45,7 +45,7 @@
         }
     ],
     "network": {
-        "type": "bridge"
+        "type": "host"
     },
     "propagatedMount": "/mnt",
     "workdir": "/"
