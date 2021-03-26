@@ -70,7 +70,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 		sOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:0.0.0.0:" + strconv.Itoa(s.Port) + ",fork",
+			"tcp-l:" + strconv.Itoa(s.Port) + ",fork",
 			"unix:" + s.SockPath + "/filer.sock",
 		}
 		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
