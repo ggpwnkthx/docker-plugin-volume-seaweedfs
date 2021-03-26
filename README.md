@@ -50,10 +50,14 @@ This plugin will automatically create the necessary TCP listeners using random p
 
 To create a Docker Volume using this plugin, see the example below.
 
-```docker volume create --driver ggpwnkthx/docker-plugin-volume-seaweedfs --opt filer=filer_alias volume_name```
+```
+docker volume create --driver ggpwnkthx/docker-plugin-volume-seaweedfs --opt filer=filer_alias volume_name
+```
 
 In the above example, this plugin will use the Unix sockets found in the ```/var/lib/docker/plugins/seaweedfs/filer_alias``` directory to mount the root directory hosted by that SeaweedFS instance to the Docker Volume named ```volume_name```.
 
 Using the ```--opt``` parameter, we can passthru options to the ```weed mount``` command used in this plugin. Similar to the example above, the example below shows how to create a Docker Volume that mounts a specific directory hosted by the SeaweedFS instance instead of the root directory.
 
-```docker volume create --driver ggpwnkthx/docker-plugin-volume-seaweedfs --opt filer=filer_alias --opt filer.path=/path/you/want/mounted volume_name```
+```
+docker volume create --driver ggpwnkthx/docker-plugin-volume-seaweedfs --opt filer=filer_alias --opt filer.path=/path/you/want/mounted volume_name
+```
