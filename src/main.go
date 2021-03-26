@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
+	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/sirupsen/logrus"
@@ -12,7 +12,6 @@ import (
 
 // mostly swiped from https://github.com/vieux/docker-volume-sshfs/blob/master/main.go
 const socketAddress = "/run/docker/plugins/volumedriver.sock"
-const propagatedMount = "/mnt"
 
 // Error log helper
 func logError(format string, args ...interface{}) error {
@@ -26,9 +25,12 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	d, err := newVolumeDriver(propagatedMount)
-	if err != nil {
-		log.Fatal(err)
+	d := &Driver{
+		socats:      map[string]*Socat{},
+		socketMount: "/var/lib/docker/plugins/seaweedfs/",
+		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
+		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
+		volumes:     map[string]*Volume{},
 	}
 	h := volume.NewHandler(d)
 	logrus.Infof("listening on %s", socketAddress)

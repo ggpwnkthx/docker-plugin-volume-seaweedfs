@@ -47,6 +47,6 @@
     "network": {
         "type": "host"
     },
-    "propagatedMount": "/mnt",
+    "propagatedMount": "/var/lib/docker-volumes",
     "workdir": "/"
 }

@@ -7,19 +7,17 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
 )
 
 type Driver struct {
-	propagatedMount string
-	socats          map[string]*Socat
-	socketMount     string
-	Stderr          *os.File
-	Stdout          *os.File
-	volumes         map[string]*Volume
+	socats      map[string]*Socat
+	socketMount string
+	Stderr      *os.File
+	Stdout      *os.File
+	volumes     map[string]*Volume
 }
 
 type Socat struct {
@@ -33,20 +31,6 @@ type Volume struct {
 	Options          map[string]string
 	socat            *Socat
 	weed             *exec.Cmd
-}
-
-var ()
-
-func newVolumeDriver(propagatedMount string) (*Driver, error) {
-	d := &Driver{
-		propagatedMount: propagatedMount,
-		socats:          map[string]*Socat{},
-		socketMount:     "/var/lib/docker/plugins/seaweedfs/",
-		Stdout:          os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
-		Stderr:          os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
-		volumes:         map[string]*Volume{},
-	}
-	return d, nil
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -78,6 +62,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		s.Cmd.Start()
 
 		d.socats[filer[0]] = s
+		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, filer[0]), os.ModeDir)
 	}
 
 	v := &Volume{
