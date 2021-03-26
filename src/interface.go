@@ -13,7 +13,7 @@ import (
 )
 
 type Driver struct {
-	socats      map[string]*Socat
+	filers      map[string]*Filer
 	socketMount string
 	Stderr      *os.File
 	Stdout      *os.File
@@ -21,15 +21,20 @@ type Driver struct {
 }
 
 type Socat struct {
-	Cmd      *exec.Cmd
-	Port     int
-	SockPath string
+	Cmd  *exec.Cmd
+	Port int
+	Sock string
+}
+
+type Filer struct {
+	http *Socat
+	grpc *Socat
 }
 
 type Volume struct {
 	Mountpoint, Name string
 	Options          map[string]string
-	socat            *Socat
+	filer            *Filer
 	weed             *exec.Cmd
 }
 
@@ -41,42 +46,57 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	_, ok = d.socats[filer[0]]
+	_, ok = d.filers[filer[0]]
 	if !ok {
+		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, filer[0]), os.ModeDir)
+
 		port, err := freeport.GetFreePort()
 		if err != nil {
 			return errors.New("freeport: " + err.Error())
 		}
-		s := &Socat{
-			Port:     port,
-			SockPath: d.socketMount + filer[0],
+		http := &Socat{
+			Port: port,
+			Sock: filepath.Join(d.socketMount, filer[0], "http.sock"),
 		}
-		sOptions := []string{
+		httpOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(s.Port) + ",fork",
-			"unix:" + s.SockPath + "/filer.sock",
+			"tcp-l:" + strconv.Itoa(http.Port) + ",fork",
+			"unix:" + http.Sock,
 		}
-		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
-		s.Cmd.Stderr = d.Stderr
-		s.Cmd.Stdout = d.Stdout
-		s.Cmd.Start()
+		http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+		http.Cmd.Stderr = d.Stderr
+		http.Cmd.Stdout = d.Stdout
+		d.filers[filer[0]].http = http
+		d.filers[filer[0]].http.Cmd.Start()
 
-		d.socats[filer[0]] = s
-		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, filer[0]), os.ModeDir)
+		grpc := &Socat{
+			Port: port + 10000,
+			Sock: filepath.Join(d.socketMount, filer[0], "grpc.sock"),
+		}
+		grpcOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:" + strconv.Itoa(grpc.Port) + ",fork",
+			"unix:" + grpc.Sock,
+		}
+		grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+		grpc.Cmd.Stderr = d.Stderr
+		grpc.Cmd.Stdout = d.Stdout
+		d.filers[filer[0]].grpc = grpc
+		d.filers[filer[0]].grpc.Cmd.Start()
 	}
 
 	v := &Volume{
-		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, filer[0], r.Name), // "/path/under/PropogatedMount"
+		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, filer[0], r.Name),
 		Options:    r.Options,
 		Name:       r.Name,
-		socat:      d.socats[filer[0]],
+		filer:      d.filers[filer[0]],
 	}
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
-		"-filer=127.0.0.1:" + strconv.Itoa(v.socat.Port),
+		"-filer=localhost:" + strconv.Itoa(v.filer.http.Port),
 		"-volumeServerAccess=filerProxy",
 	}
 	for oKey, oValue := range r.Options {
@@ -98,7 +118,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 
 func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 	status := make(map[string]interface{})
-	status["socat"] = v.socat
+	status["filer"] = v.filer
 	status["weed"] = v.weed
 	cmd, _ := exec.Command("ls", v.Mountpoint).CombinedOutput()
 	status["ls"] = string(cmd[:])

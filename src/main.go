@@ -26,7 +26,7 @@ func main() {
 	}
 
 	d := &Driver{
-		socats:      map[string]*Socat{},
+		filers:      map[string]*Filer{},
 		socketMount: "/var/lib/docker/plugins/seaweedfs/",
 		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
