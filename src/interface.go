@@ -18,13 +18,13 @@ type Socat struct {
 	SockPath string
 }
 
-var socats map[string]Socat
+var socats map[string]*Socat
 
 type Volume struct {
 	Filer            []string
 	Mountpoint, Name string
 	Options          map[string]string
-	socat            Socat
+	socat            *Socat
 	weed             *exec.Cmd
 }
 
@@ -36,18 +36,19 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	_, ok = socats[filer[0]]
-	if !ok {
+	s := socats[filer[0]]
+	if s == nil {
 		port, err := freeport.GetFreePort()
 		if err != nil {
 			return errors.New("freeport: " + err.Error())
 		}
-		socats[filer[0]] = Socat{
+		s := &Socat{
 			Port:     port,
 			SockPath: d.socketMount + filer[0],
 		}
+		socats[filer[0]] = s
 	}
-	s := socats[filer[0]]
+
 	if s.Cmd == nil {
 		sOptions := []string{
 			"-d", "-d", "-d",
