@@ -29,7 +29,6 @@ type Socat struct {
 }
 
 type Volume struct {
-	Filer            []string
 	Mountpoint, Name string
 	Options          map[string]string
 	socat            *Socat
@@ -82,8 +81,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	}
 
 	v := &Volume{
-		Filer:      filer,
-		Mountpoint: filepath.Join(d.propagatedMount, r.Name), // "/path/under/PropogatedMount"
+		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, filer[0], r.Name), // "/path/under/PropogatedMount"
 		Options:    r.Options,
 		Name:       r.Name,
 		socat:      d.socats[filer[0]],
