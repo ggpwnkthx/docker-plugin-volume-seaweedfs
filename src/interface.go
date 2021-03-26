@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
@@ -16,6 +17,8 @@ type Driver struct {
 	propagatedMount string
 	socats          map[string]*Socat
 	socketMount     string
+	Stderr          *os.File
+	Stdout          *os.File
 	volumes         map[string]*Volume
 }
 
@@ -33,11 +36,15 @@ type Volume struct {
 	weed             *exec.Cmd
 }
 
+var ()
+
 func newVolumeDriver(propagatedMount string) (*Driver, error) {
 	d := &Driver{
 		propagatedMount: propagatedMount,
 		socats:          map[string]*Socat{},
 		socketMount:     "/var/lib/docker/plugins/seaweedfs/",
+		Stdout:          os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
+		Stderr:          os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:         map[string]*Volume{},
 	}
 	return d, nil
@@ -67,8 +74,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 			"unix:" + s.SockPath + "/filer.sock",
 		}
 		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
-		s.Cmd.Stderr = os.Stderr
-		s.Cmd.Stdout = os.Stdout
+		s.Cmd.Stderr = d.Stderr
+		s.Cmd.Stdout = d.Stdout
 		s.Cmd.Start()
 
 		d.socats[filer[0]] = s
@@ -97,8 +104,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 	}
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
-	v.weed.Stderr = os.Stderr
-	v.weed.Stdout = os.Stdout
+	v.weed.Stderr = d.Stderr
+	v.weed.Stdout = d.Stdout
 	v.weed.Start()
 
 	d.volumes[r.Name] = v
