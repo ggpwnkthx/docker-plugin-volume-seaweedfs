@@ -106,7 +106,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	return nil
 }
 
-func (d *Driver) getVolumeStatus(v *Volume) interface{} {
+func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 	status := make(map[string]interface{})
 	status["socat"] = v.socat
 	status["weed"] = v.weed
