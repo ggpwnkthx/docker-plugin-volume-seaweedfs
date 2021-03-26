@@ -67,6 +67,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 			"unix:" + s.SockPath + "/filer.sock",
 		}
 		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
+		s.Cmd.Stderr = os.Stderr
+		s.Cmd.Stdout = os.Stdout
 		s.Cmd.Start()
 
 		d.socats[filer[0]] = s
@@ -95,6 +97,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		}
 	}
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
+	v.weed.Stderr = os.Stderr
+	v.weed.Stdout = os.Stdout
 	v.weed.Start()
 
 	d.volumes[r.Name] = v
