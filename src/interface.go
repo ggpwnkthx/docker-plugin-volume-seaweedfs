@@ -73,7 +73,6 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
 		socats.http.Cmd.Stderr = d.Stderr
 		socats.http.Cmd.Stdout = d.Stdout
-		socats.http.Cmd.Start()
 
 		grpcOptions := []string{
 			"-d", "-d", "-d",
