@@ -12,13 +12,18 @@ import (
 	"github.com/phayes/freeport"
 )
 
+type Driver struct {
+	propagatedMount string
+	socats          map[string]*Socat
+	socketMount     string
+	volumes         map[string]*Volume
+}
+
 type Socat struct {
 	Cmd      *exec.Cmd
 	Port     int
 	SockPath string
 }
-
-var socats map[string]*Socat
 
 type Volume struct {
 	Filer            []string
@@ -26,6 +31,16 @@ type Volume struct {
 	Options          map[string]string
 	socat            *Socat
 	weed             *exec.Cmd
+}
+
+func newVolumeDriver(propagatedMount string) (*Driver, error) {
+	d := &Driver{
+		propagatedMount: propagatedMount,
+		socats:          map[string]*Socat{},
+		socketMount:     "/var/lib/docker/plugins/seaweedfs/",
+		volumes:         map[string]*Volume{},
+	}
+	return d, nil
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -36,7 +51,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	s := socats[filer[0]]
+	s := d.socats[filer[0]]
 	if s == nil {
 		port, err := freeport.GetFreePort()
 		if err != nil {
@@ -46,14 +61,14 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 			Port:     port,
 			SockPath: d.socketMount + filer[0],
 		}
-		socats[filer[0]] = s
+		d.socats[filer[0]] = s
 	}
 
 	if s.Cmd == nil {
 		sOptions := []string{
 			"-d", "-d", "-d",
-			"tcp-l:127.0.0.1:" + strconv.Itoa(socats[filer[0]].Port) + ",fork",
-			"unix:" + socats[filer[0]].SockPath + "/filer.sock",
+			"tcp-l:127.0.0.1:" + strconv.Itoa(d.socats[filer[0]].Port) + ",fork",
+			"unix:" + d.socats[filer[0]].SockPath + "/filer.sock",
 		}
 		s.Cmd = exec.Command("/usr/bin/socat", sOptions...)
 		s.Cmd.Start()

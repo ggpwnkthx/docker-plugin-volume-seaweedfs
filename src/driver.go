@@ -4,21 +4,6 @@ import (
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
-type Driver struct {
-	propagatedMount string
-	socketMount     string
-	volumes         map[string]*Volume
-}
-
-func newVolumeDriver(propagatedMount string) (*Driver, error) {
-	d := &Driver{
-		propagatedMount: propagatedMount,
-		socketMount:     "/var/lib/docker/plugins/seaweedfs/",
-		volumes:         map[string]*Volume{},
-	}
-	return d, nil
-}
-
 // Get the list of capabilities the driver supports.
 // The driver is not required to implement Capabilities. If it is not implemented, the default values are used.
 func (d *Driver) Capabilities() *volume.CapabilitiesResponse {
