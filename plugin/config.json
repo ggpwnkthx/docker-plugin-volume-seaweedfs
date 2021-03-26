@@ -45,7 +45,7 @@
         }
     ],
     "network": {
-        "type": "host"
+        "type": "bridge"
     },
     "propagatedMount": "/var/lib/docker-volumes",
     "workdir": "/"

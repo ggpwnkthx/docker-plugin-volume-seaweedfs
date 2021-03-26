@@ -100,6 +100,8 @@ func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 	status := make(map[string]interface{})
 	status["socat"] = v.socat
 	status["weed"] = v.weed
+	cmd, _ := exec.Command("ls", v.Mountpoint).CombinedOutput()
+	status["ls"] = string(cmd[:])
 	return status
 }
 
