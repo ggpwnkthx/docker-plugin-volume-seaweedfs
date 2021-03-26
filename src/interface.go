@@ -144,15 +144,17 @@ func (d *Driver) mountVolume(v *Volume) error {
 }
 
 func (d *Driver) removeVolume(v *Volume) error {
-	err := exec.Command("umount", v.Mountpoint).Run()
-	if err != nil {
-		return err
+	if _, err := os.Stat(v.Mountpoint); !os.IsNotExist(err) {
+		err := exec.Command("umount", v.Mountpoint).Run()
+		if err != nil {
+			return err
+		}
+		err = os.RemoveAll(d.volumes[v.Name].Mountpoint)
+		if err != nil {
+			return err
+		}
+		delete(d.volumes, v.Name)
 	}
-	err = os.RemoveAll(d.volumes[v.Name].Mountpoint)
-	if err != nil {
-		return err
-	}
-	delete(d.volumes, v.Name)
 	return nil
 }
 
