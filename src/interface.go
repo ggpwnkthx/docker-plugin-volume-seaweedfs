@@ -32,10 +32,9 @@ type Filer struct {
 }
 
 type Volume struct {
-	Mountpoint, Name string
-	Options          map[string]string
-	filer            *Filer
-	weed             *exec.Cmd
+	FilerAlias, Mountpoint, Name string
+	Options                      map[string]string
+	weed                         *exec.Cmd
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -46,66 +45,23 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	filer := strings.Split(r.Options["filer"], ":")
 	delete(r.Options, "filer")
 
-	_, ok = d.filers[filer[0]]
-	if !ok {
-		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, filer[0]), os.ModeDir)
-		port, err := freeport.GetFreePort()
-		if err != nil {
-			return errors.New("freeport: " + err.Error())
-		}
-
-		socats := &Filer{
-			http: &Socat{
-				Port: port,
-				Sock: filepath.Join(d.socketMount, filer[0], "http.sock"),
-			},
-			grpc: &Socat{
-				Port: port + 10000,
-				Sock: filepath.Join(d.socketMount, filer[0], "grpc.sock"),
-			},
-		}
-		if _, err := os.Stat(socats.http.Sock); os.IsNotExist(err) {
-			return errors.New("http unix socket not found")
-		}
-		if _, err := os.Stat(socats.grpc.Sock); os.IsNotExist(err) {
-			return errors.New("grpc unix socket not found")
-		}
-
-		httpOptions := []string{
-			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(socats.http.Port) + ",fork",
-			"unix:" + socats.http.Sock,
-		}
-		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-		socats.http.Cmd.Stderr = d.Stderr
-		socats.http.Cmd.Stdout = d.Stdout
-		socats.http.Cmd.Start()
-
-		grpcOptions := []string{
-			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(socats.grpc.Port) + ",fork",
-			"unix:" + socats.grpc.Sock,
-		}
-		socats.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-		socats.grpc.Cmd.Stderr = d.Stderr
-		socats.grpc.Cmd.Stdout = d.Stdout
-		socats.grpc.Cmd.Start()
-
-		d.filers[filer[0]] = socats
+	f, err := d.getFiler(filer[0])
+	if err != nil {
+		return err
 	}
 
 	v := &Volume{
-		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, filer[0], r.Name),
-		Options:    r.Options,
+		FilerAlias: filer[0],
+		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, r.Name),
 		Name:       r.Name,
-		filer:      d.filers[filer[0]],
+		Options:    r.Options,
 	}
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
 		"-dir=" + v.Mountpoint,
 		"-dirAutoCreate",
-		"-filer=localhost:" + strconv.Itoa(v.filer.http.Port),
+		"-filer=localhost:" + strconv.Itoa(f.http.Port),
 		"-volumeServerAccess=filerProxy",
 	}
 	for oKey, oValue := range r.Options {
@@ -127,10 +83,6 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 
 func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 	status := make(map[string]interface{})
-	status["filer"] = v.filer
-	status["weed"] = v.weed
-	cmd, _ := exec.Command("ls", v.Mountpoint).CombinedOutput()
-	status["ls"] = string(cmd[:])
 	return status
 }
 
@@ -140,6 +92,7 @@ func (d *Driver) listVolumes() []*volume.Volume {
 		volumes = append(volumes, &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
+			Status:     d.getVolumeStatus(v),
 		})
 	}
 	return volumes
@@ -166,4 +119,59 @@ func (d *Driver) removeVolume(v *Volume) error {
 
 func (d *Driver) unmountVolume(v *Volume) error {
 	return nil
+}
+
+func (d *Driver) getFiler(alias string) (*Filer, error) {
+	_, ok := d.filers[alias]
+	if !ok {
+		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
+		port, err := freeport.GetFreePort()
+		if err != nil {
+			return &Filer{}, errors.New("freeport: " + err.Error())
+		}
+
+		socats := &Filer{
+			http: &Socat{
+				Port: port,
+				Sock: filepath.Join(d.socketMount, alias, "http.sock"),
+			},
+			grpc: &Socat{
+				Port: port + 10000,
+				Sock: filepath.Join(d.socketMount, alias, "grpc.sock"),
+			},
+		}
+		if _, err := os.Stat(socats.http.Sock); os.IsNotExist(err) {
+			return &Filer{}, errors.New("http unix socket not found")
+		}
+		if _, err := os.Stat(socats.grpc.Sock); os.IsNotExist(err) {
+			return &Filer{}, errors.New("grpc unix socket not found")
+		}
+
+		httpOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:" + strconv.Itoa(socats.http.Port) + ",fork",
+			"unix:" + socats.http.Sock,
+		}
+		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+		socats.http.Cmd.Stderr = d.Stderr
+		socats.http.Cmd.Stdout = d.Stdout
+		socats.http.Cmd.Start()
+
+		grpcOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:" + strconv.Itoa(socats.grpc.Port) + ",fork",
+			"unix:" + socats.grpc.Sock,
+		}
+		socats.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+		socats.grpc.Cmd.Stderr = d.Stderr
+		socats.grpc.Cmd.Stdout = d.Stdout
+		socats.grpc.Cmd.Start()
+
+		d.filers[alias] = socats
+	}
+	return d.filers[alias], nil
+}
+
+func (d *Driver) manage() {
+
 }
