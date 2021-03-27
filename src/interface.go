@@ -64,6 +64,12 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 				Sock: filepath.Join(d.socketMount, filer[0], "grpc.sock"),
 			},
 		}
+		if _, err := os.Stat(socats.http.Sock); os.IsNotExist(err) {
+			return errors.New("http unix socket not found")
+		}
+		if _, err := os.Stat(socats.grpc.Sock); os.IsNotExist(err) {
+			return errors.New("grpc unix socket not found")
+		}
 
 		httpOptions := []string{
 			"-d", "-d", "-d",
@@ -153,8 +159,8 @@ func (d *Driver) removeVolume(v *Volume) error {
 		if err != nil {
 			return err
 		}
-		delete(d.volumes, v.Name)
 	}
+	delete(d.volumes, v.Name)
 	return nil
 }
 
