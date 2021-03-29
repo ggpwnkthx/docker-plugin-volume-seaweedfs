@@ -255,11 +255,9 @@ func (d *Driver) manage() {
 					syncState = true
 				}
 			}
-		} else {
-			syncState = true
-		}
-		if syncState {
-			d.save()
+			if syncState {
+				d.save()
+			}
 		}
 		time.Sleep(5 * time.Second)
 	}
