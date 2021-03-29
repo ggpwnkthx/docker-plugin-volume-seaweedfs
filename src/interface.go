@@ -63,6 +63,7 @@ func loadDriver() *Driver {
 		}
 
 	}
+	go d.manage()
 	return d
 }
 func (d *Driver) save() {
