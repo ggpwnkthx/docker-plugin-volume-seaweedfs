@@ -52,7 +52,7 @@ func loadDriver() *Driver {
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:     map[string]*Volume{},
 	}
-	go d.manage()
+	d.manage()
 	return d
 }
 func (d *Driver) save() {
@@ -237,6 +237,10 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 func (d *Driver) manage() {
 	for {
 		if _, err := os.Stat(savePath); err == nil {
+			cmd := exec.Command("echo", savePath+" was found")
+			cmd.Stdout = d.Stdout
+			cmd.Run()
+
 			data, err := ioutil.ReadFile(savePath)
 			if err != nil {
 				logrus.WithField("loadDriver", savePath).Error(err)
@@ -254,6 +258,10 @@ func (d *Driver) manage() {
 					})
 				}
 			}
+		} else {
+			cmd := exec.Command("echo", err.Error())
+			cmd.Stdout = d.Stdout
+			cmd.Run()
 		}
 		time.Sleep(5 * time.Second)
 	}
