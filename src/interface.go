@@ -46,6 +46,7 @@ type Volume struct {
 
 func loadDriver() *Driver {
 	d := &Driver{
+		filers:      map[string]*Filer{},
 		socketMount: "/var/lib/docker/plugins/seaweedfs/",
 		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
@@ -61,8 +62,6 @@ func loadDriver() *Driver {
 			d.volumes[v.Name] = v
 		}
 
-	} else {
-		d.filers = map[string]*Filer{}
 	}
 	return d
 }
@@ -104,7 +103,12 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 }
 
 func (d *Driver) updateVolume(v *Volume) {
-	f, err := d.getFiler(strings.Split(v.Options["filer"], ":")[0])
+	filer := strings.Split(v.Options["filer"], ":")[0]
+	if filer == "" {
+		logrus.WithField("filer", filer).Error(errors.New("filer is nil"))
+		return
+	}
+	f, err := d.getFiler(filer)
 	if err != nil {
 		logrus.WithField("getFiler", f).Error(err)
 		return
