@@ -165,8 +165,9 @@ func (d *Driver) removeVolume(v *Volume) error {
 		}
 	}
 	d.Lock()
-	defer d.Unlock()
 	delete(d.volumes, v.Name)
+	d.Unlock()
+	d.save()
 	return nil
 }
 
