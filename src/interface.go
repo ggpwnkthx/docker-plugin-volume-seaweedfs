@@ -50,18 +50,14 @@ func loadDriver() *Driver {
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:     map[string]*Volume{},
 	}
-	if _, err := os.Stat(savePath + ".filers"); err == nil {
-		var filers []string
-		data, err := ioutil.ReadFile(savePath + ".filers")
+	if _, err := os.Stat(savePath + ".volumes"); err == nil {
+		data, err := ioutil.ReadFile(savePath + ".volumes")
 		if err != nil {
 			logrus.WithField("loadDriver", savePath).Error(err)
 		}
-		json.Unmarshal(data, &filers)
-		for _, filer := range filers {
-			_, err = d.getFiler(filer)
-			if err != nil {
-				logrus.WithField("loadDriver", savePath).Error(err)
-			}
+		json.Unmarshal(data, &d.volumes)
+		for _, v := range d.volumes {
+			d.updateVolume(v)
 		}
 
 	} else {
@@ -79,7 +75,7 @@ func (d *Driver) save() {
 		logrus.WithField("savePath", savePath).Error(err)
 		return
 	}
-	if err := ioutil.WriteFile(savePath+".filers", data, 0644); err != nil {
+	if err := ioutil.WriteFile(savePath+".volumes", data, 0644); err != nil {
 		logrus.WithField("savestate", savePath).Error(err)
 	}
 }
@@ -89,19 +85,20 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	if !ok {
 		return errors.New("no filer address:port specified")
 	}
-	filer := strings.Split(r.Options["filer"], ":")
-	delete(r.Options, "filer")
-
-	f, err := d.getFiler(filer[0])
-	if err != nil {
-		return err
-	}
-
 	v := &Volume{
 		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, r.Name),
 		Name:       r.Name,
 		Options:    r.Options,
 	}
+	d.updateVolume(v)
+	d.save()
+
+	return nil
+}
+
+func (d *Driver) updateVolume(v *Volume) {
+	filer := strings.Split(v.Options["filer"], ":")
+	f, _ := d.getFiler(filer[0])
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
@@ -110,11 +107,13 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 		"-filer=localhost:" + strconv.Itoa(f.http.Port),
 		"-volumeServerAccess=filerProxy",
 	}
-	for oKey, oValue := range r.Options {
-		if oValue != "" {
-			mOptions = append(mOptions, "-"+oKey+"="+oValue)
-		} else {
-			mOptions = append(mOptions, "-"+oKey)
+	for oKey, oValue := range v.Options {
+		if oKey != "filer" {
+			if oValue != "" {
+				mOptions = append(mOptions, "-"+oKey+"="+oValue)
+			} else {
+				mOptions = append(mOptions, "-"+oKey)
+			}
 		}
 	}
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
@@ -122,10 +121,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	v.weed.Stdout = d.Stdout
 	v.weed.Start()
 
-	d.volumes[r.Name] = v
-	d.save()
-
-	return nil
+	d.volumes[v.Name] = v
 }
 
 func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
