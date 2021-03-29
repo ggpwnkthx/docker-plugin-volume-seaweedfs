@@ -237,6 +237,7 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 
 func (d *Driver) manage() {
 	for {
+		syncState := false
 		if _, err := os.Stat(savePath); err == nil {
 			data, err := ioutil.ReadFile(savePath)
 			if err != nil {
@@ -250,12 +251,15 @@ func (d *Driver) manage() {
 				vol := d.volumes[v.Name]
 				d.RUnlock()
 				if vol == nil {
-					d.createVolume(&volume.CreateRequest{
-						Name:    v.Name,
-						Options: v.Options,
-					})
+					d.updateVolume(&v)
+					syncState = true
 				}
 			}
+		} else {
+			syncState = true
+		}
+		if syncState {
+			d.save()
 		}
 		time.Sleep(5 * time.Second)
 	}
