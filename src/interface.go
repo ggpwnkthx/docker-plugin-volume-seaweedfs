@@ -251,7 +251,9 @@ func (d *Driver) manage() {
 		volumes := d.volumes
 		d.RUnlock()
 		for _, v := range volumes {
-			logrus.WithField("manager:volume", v).Error(errors.New(v.Name))
+			cmd := exec.Command("echo", "manage:"+v.Name)
+			cmd.Stdout = d.Stderr
+			cmd.Run()
 			if v.weed == nil {
 				d.updateVolume(v)
 			}
