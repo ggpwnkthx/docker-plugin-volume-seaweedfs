@@ -52,8 +52,8 @@ func loadDriver() *Driver {
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:     map[string]*Volume{},
 	}
-	if _, err := os.Stat(savePath + ".volumes"); err == nil {
-		data, err := ioutil.ReadFile(savePath + ".volumes")
+	if _, err := os.Stat(savePath); err == nil {
+		data, err := ioutil.ReadFile(savePath)
 		if err != nil {
 			logrus.WithField("loadDriver", savePath).Error(err)
 		}
@@ -61,7 +61,6 @@ func loadDriver() *Driver {
 		for _, v := range d.volumes {
 			d.volumes[v.Name] = v
 		}
-
 	}
 	go d.manage()
 	return d
@@ -82,7 +81,7 @@ func (d *Driver) save() {
 		logrus.WithField("savePath", savePath).Error(err)
 		return
 	}
-	if err := ioutil.WriteFile(savePath+".volumes", data, 0644); err != nil {
+	if err := ioutil.WriteFile(savePath, data, 0644); err != nil {
 		logrus.WithField("savestate", savePath).Error(err)
 	}
 }
