@@ -66,11 +66,16 @@ func loadDriver() *Driver {
 	return d
 }
 func (d *Driver) save() {
-	var filers []string
-	for key := range d.filers {
-		filers = append(filers, key)
+	var volumes []Volume
+	for _, vValue := range d.volumes {
+		v := Volume{
+			Name:       vValue.Name,
+			Mountpoint: vValue.Mountpoint,
+			Options:    vValue.Options,
+		}
+		volumes = append(volumes, v)
 	}
-	data, err := json.Marshal(filers)
+	data, err := json.Marshal(volumes)
 	if err != nil {
 		logrus.WithField("savePath", savePath).Error(err)
 		return
@@ -97,8 +102,11 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 }
 
 func (d *Driver) updateVolume(v *Volume) {
-	filer := strings.Split(v.Options["filer"], ":")
-	f, _ := d.getFiler(filer[0])
+	f, err := d.getFiler(strings.Split(v.Options["filer"], ":")[0])
+	if err != nil {
+		logrus.WithField("getFiler", f).Error(err)
+		return
+	}
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
