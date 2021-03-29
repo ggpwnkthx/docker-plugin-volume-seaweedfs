@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -26,11 +28,11 @@ func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
-			Mountpoint: v.Mountpoint, // "/path/under/PropogatedMount"
+			Mountpoint: v.Mountpoint,
 			Status:     d.getVolumeStatus(v),
 		}}, nil
 	} else {
-		return &volume.GetResponse{}, logError("volume %s not found", r.Name)
+		return &volume.GetResponse{}, errors.New("volume " + r.Name + " not found")
 	}
 }
 
@@ -50,7 +52,7 @@ func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		d.mountVolume(v)
 		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
-		return &volume.MountResponse{}, logError("volume %s not found", r.Name)
+		return &volume.MountResponse{}, errors.New("volume " + r.Name + " not found")
 	}
 }
 
@@ -59,7 +61,7 @@ func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	if v, found := d.volumes[r.Name]; found {
 		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
-		return &volume.PathResponse{}, logError("volume %s not found", r.Name)
+		return &volume.PathResponse{}, errors.New("volume " + r.Name + " not found")
 	}
 
 }
@@ -70,11 +72,11 @@ func (d *Driver) Remove(r *volume.RemoveRequest) error {
 	if v, found := d.volumes[r.Name]; found {
 		err := d.removeVolume(v)
 		if err != nil {
-			return logError(err.Error())
+			return err
 		}
 		return nil
 	} else {
-		return logError("volume %s not found", r.Name)
+		return errors.New("volume " + r.Name + " not found")
 	}
 }
 
@@ -86,6 +88,6 @@ func (d *Driver) Unmount(r *volume.UnmountRequest) error {
 	if v, found := d.volumes[r.Name]; found {
 		return d.unmountVolume(v)
 	} else {
-		return logError("volume %s not found", r.Name)
+		return errors.New("volume " + r.Name + " not found")
 	}
 }

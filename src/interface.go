@@ -1,18 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
+	"github.com/sirupsen/logrus"
 )
 
 type Driver struct {
+	sync.RWMutex
 	filers      map[string]*Filer
 	socketMount string
 	Stderr      *os.File
@@ -32,9 +38,50 @@ type Filer struct {
 }
 
 type Volume struct {
-	FilerAlias, Mountpoint, Name string
-	Options                      map[string]string
-	weed                         *exec.Cmd
+	Mountpoint, Name string
+	Options          map[string]string
+	weed             *exec.Cmd
+}
+
+func loadDriver() *Driver {
+	d := &Driver{
+		socketMount: "/var/lib/docker/plugins/seaweedfs/",
+		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
+		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
+		volumes:     map[string]*Volume{},
+	}
+	if _, err := os.Stat(savePath); err == nil {
+		var filers []string
+		data, err := ioutil.ReadFile(savePath)
+		if err != nil {
+			logrus.WithField("loadDriver", savePath).Error(err)
+		}
+		json.Unmarshal(data, &filers)
+		for _, filer := range filers {
+			_, err = d.getFiler(filer)
+			if err != nil {
+				logrus.WithField("loadDriver", savePath).Error(err)
+			}
+		}
+
+	} else {
+		d.filers = map[string]*Filer{}
+	}
+	return d
+}
+func (d *Driver) save() {
+	var filers []string
+	for key := range d.filers {
+		filers = append(filers, key)
+	}
+	data, err := json.Marshal(filers)
+	if err != nil {
+		logrus.WithField("savePath", savePath+".filers").Error(err)
+		return
+	}
+	if err := ioutil.WriteFile(savePath, data, 0644); err != nil {
+		logrus.WithField("savestate", savePath+".filers").Error(err)
+	}
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -51,7 +98,6 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	}
 
 	v := &Volume{
-		FilerAlias: filer[0],
 		Mountpoint: filepath.Join(volume.DefaultDockerRootDirectory, r.Name),
 		Name:       r.Name,
 		Options:    r.Options,
@@ -77,12 +123,14 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	v.weed.Start()
 
 	d.volumes[r.Name] = v
+	d.save()
 
 	return nil
 }
 
 func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 	status := make(map[string]interface{})
+	status["weed"] = v.weed
 	return status
 }
 
