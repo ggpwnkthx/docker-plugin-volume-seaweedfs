@@ -248,7 +248,11 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 
 func (d *Driver) manage() {
 	for {
-		for _, v := range d.volumes {
+		d.RLock()
+		volumes := d.volumes
+		d.RUnlock()
+		for _, v := range volumes {
+			logrus.WithField("manager:volume", v).Error(errors.New(v.Name))
 			if v.weed == nil {
 				d.updateVolume(v)
 			}
