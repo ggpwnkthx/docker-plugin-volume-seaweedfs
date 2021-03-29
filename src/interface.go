@@ -248,14 +248,26 @@ func (d *Driver) manage() {
 			var volumes []Volume
 			json.Unmarshal(data, volumes)
 			for _, v := range volumes {
+				cmd := exec.Command("echo", v.Name+" was saved")
+				cmd.Stdout = d.Stdout
+				cmd.Run()
+
 				d.RLock()
 				vol := d.volumes[v.Name]
 				d.RUnlock()
 				if vol == nil {
+					cmd := exec.Command("echo", vol.Name+" doesn't exist, creating")
+					cmd.Stdout = d.Stdout
+					cmd.Run()
+
 					d.createVolume(&volume.CreateRequest{
 						Name:    v.Name,
 						Options: v.Options,
 					})
+				} else {
+					cmd := exec.Command("echo", vol.Name+" already exists")
+					cmd.Stdout = d.Stdout
+					cmd.Run()
 				}
 			}
 		} else {
