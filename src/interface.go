@@ -242,7 +242,7 @@ func (d *Driver) manage() {
 				logrus.WithField("loadDriver", savePath).Error(err)
 			}
 			var volumes []Volume
-			json.Unmarshal(data, volumes)
+			json.Unmarshal(data, &volumes)
 
 			cmd := exec.Command("echo", savePath+" has "+strconv.Itoa(len(volumes))+" volumes")
 			cmd.Stdout = d.Stdout
