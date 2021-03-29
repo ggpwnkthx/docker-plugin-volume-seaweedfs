@@ -52,16 +52,6 @@ func loadDriver() *Driver {
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:     map[string]*Volume{},
 	}
-	if _, err := os.Stat(savePath); err == nil {
-		data, err := ioutil.ReadFile(savePath)
-		if err != nil {
-			logrus.WithField("loadDriver", savePath).Error(err)
-		}
-		json.Unmarshal(data, &d.volumes)
-		for _, v := range d.volumes {
-			d.volumes[v.Name] = v
-		}
-	}
 	go d.manage()
 	return d
 }
@@ -71,9 +61,8 @@ func (d *Driver) save() {
 	defer d.RUnlock()
 	for _, v := range d.volumes {
 		volumes = append(volumes, Volume{
-			Name:       v.Name,
-			Mountpoint: v.Mountpoint,
-			Options:    v.Options,
+			Name:    v.Name,
+			Options: v.Options,
 		})
 	}
 	data, err := json.Marshal(volumes)
@@ -247,15 +236,23 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 
 func (d *Driver) manage() {
 	for {
-		d.RLock()
-		volumes := d.volumes
-		d.RUnlock()
-		for _, v := range volumes {
-			cmd := exec.Command("echo", "manage:"+v.Name)
-			cmd.Stdout = d.Stderr
-			cmd.Run()
-			if v.weed == nil {
-				d.updateVolume(v)
+		if _, err := os.Stat(savePath); err == nil {
+			data, err := ioutil.ReadFile(savePath)
+			if err != nil {
+				logrus.WithField("loadDriver", savePath).Error(err)
+			}
+			var volumes []Volume
+			json.Unmarshal(data, volumes)
+			for _, v := range volumes {
+				d.RLock()
+				vol := d.volumes[v.Name]
+				d.RUnlock()
+				if vol == nil {
+					d.createVolume(&volume.CreateRequest{
+						Name:    v.Name,
+						Options: v.Options,
+					})
+				}
 			}
 		}
 		time.Sleep(5 * time.Second)
