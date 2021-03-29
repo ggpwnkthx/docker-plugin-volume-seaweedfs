@@ -191,9 +191,15 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 	d.RUnlock()
 	if !ok {
 		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
-		port, err := freeport.GetFreePort()
-		if err != nil {
-			return &Filer{}, errors.New("freeport: " + err.Error())
+		port := 0
+		for {
+			port, err := freeport.GetFreePort()
+			if err != nil {
+				return &Filer{}, errors.New("freeport: " + err.Error())
+			}
+			if port < 55535 {
+				break
+			}
 		}
 
 		socats := &Filer{
