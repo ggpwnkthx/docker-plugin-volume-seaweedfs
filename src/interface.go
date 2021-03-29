@@ -52,7 +52,7 @@ func loadDriver() *Driver {
 		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
 		volumes:     map[string]*Volume{},
 	}
-	d.manage()
+	go d.manage()
 	return d
 }
 func (d *Driver) save() {
