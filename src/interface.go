@@ -257,7 +257,7 @@ func (d *Driver) manage() {
 				vol := d.volumes[v.Name]
 				d.RUnlock()
 				if vol == nil {
-					cmd := exec.Command("echo", vol.Name+" doesn't exist, creating")
+					cmd := exec.Command("echo", v.Name+" doesn't exist, creating")
 					cmd.Stdout = d.Stdout
 					cmd.Run()
 
