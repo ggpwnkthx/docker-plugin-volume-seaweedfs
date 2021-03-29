@@ -6,7 +6,7 @@ import (
 )
 
 const socketAddress = "/run/docker/plugins/volumedriver.sock"
-const savePath = "/run/docker/plugins/volumedriver"
+const savePath = "/var/lib/docker/plugins/seaweedfs/volumedriver"
 
 func main() {
 	d := loadDriver()
