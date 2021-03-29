@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
@@ -57,7 +58,7 @@ func loadDriver() *Driver {
 		}
 		json.Unmarshal(data, &d.volumes)
 		for _, v := range d.volumes {
-			d.updateVolume(v)
+			d.volumes[v.Name] = v
 		}
 
 	} else {
@@ -67,13 +68,14 @@ func loadDriver() *Driver {
 }
 func (d *Driver) save() {
 	var volumes []Volume
-	for _, vValue := range d.volumes {
-		v := Volume{
-			Name:       vValue.Name,
-			Mountpoint: vValue.Mountpoint,
-			Options:    vValue.Options,
-		}
-		volumes = append(volumes, v)
+	d.RLock()
+	defer d.RUnlock()
+	for _, v := range d.volumes {
+		volumes = append(volumes, Volume{
+			Name:       v.Name,
+			Mountpoint: v.Mountpoint,
+			Options:    v.Options,
+		})
 	}
 	data, err := json.Marshal(volumes)
 	if err != nil {
@@ -129,6 +131,8 @@ func (d *Driver) updateVolume(v *Volume) {
 	v.weed.Stdout = d.Stdout
 	v.weed.Start()
 
+	d.Lock()
+	defer d.Unlock()
 	d.volumes[v.Name] = v
 }
 
@@ -139,6 +143,8 @@ func (d *Driver) getVolumeStatus(v *Volume) map[string]interface{} {
 }
 
 func (d *Driver) listVolumes() []*volume.Volume {
+	d.RLock()
+	defer d.RUnlock()
 	var volumes []*volume.Volume
 	for _, v := range d.volumes {
 		volumes = append(volumes, &volume.Volume{
@@ -160,11 +166,13 @@ func (d *Driver) removeVolume(v *Volume) error {
 		if err != nil {
 			return err
 		}
-		err = os.RemoveAll(d.volumes[v.Name].Mountpoint)
+		err = os.RemoveAll(v.Mountpoint)
 		if err != nil {
 			return err
 		}
 	}
+	d.Lock()
+	defer d.Unlock()
 	delete(d.volumes, v.Name)
 	return nil
 }
@@ -174,7 +182,9 @@ func (d *Driver) unmountVolume(v *Volume) error {
 }
 
 func (d *Driver) getFiler(alias string) (*Filer, error) {
+	d.RLock()
 	_, ok := d.filers[alias]
+	d.RUnlock()
 	if !ok {
 		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
 		port, err := freeport.GetFreePort()
@@ -218,12 +228,20 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 		socats.grpc.Cmd.Stderr = d.Stderr
 		socats.grpc.Cmd.Stdout = d.Stdout
 		socats.grpc.Cmd.Start()
-
+		d.Lock()
+		defer d.Unlock()
 		d.filers[alias] = socats
 	}
 	return d.filers[alias], nil
 }
 
 func (d *Driver) manage() {
-
+	for {
+		for _, v := range d.volumes {
+			if v.weed == nil {
+				d.updateVolume(v)
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
 }

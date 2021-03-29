@@ -14,5 +14,5 @@ func main() {
 	logrus.Infof("listening on %s", socketAddress)
 	logrus.Error(h.ServeUnix(socketAddress, 0))
 
-	//go d.manage()
+	go d.manage()
 }
