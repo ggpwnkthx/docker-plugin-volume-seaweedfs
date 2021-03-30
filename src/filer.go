@@ -89,8 +89,8 @@ func getFiler(alias string) (*Filer, error) {
 			filer.grpc.Cmd.Start()
 		*/
 		// Use io.copy
-		go gocat_unix2tcp(filer.http.Sock, filer.http.Port)
-		go gocat_unix2tcp(filer.grpc.Sock, filer.grpc.Port)
+		go gocat_tcp2unix(filer.http.Port, filer.http.Sock)
+		go gocat_tcp2unix(filer.grpc.Port, filer.grpc.Sock)
 
 		setFiler(alias, filer)
 	}
@@ -102,9 +102,9 @@ func setFiler(alias string, filer *Filer) {
 	Filers.list[alias] = filer
 }
 
-func gocat_unix2tcp(socketPath string, port int) {
+func gocat_tcp2unix(port int, socketPath string) {
 	for {
-		l, err := net.Listen("unix", socketPath)
+		l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
 		if err != nil {
 			logerr(err.Error())
 			return
@@ -115,13 +115,13 @@ func gocat_unix2tcp(socketPath string, port int) {
 				logerr(err.Error())
 				continue
 			}
-			go gocat_forward(uconn, port)
+			go gocat_forward2unix(uconn, socketPath)
 		}
 	}
 }
-func gocat_forward(uconn net.Conn, port int) {
+func gocat_forward2unix(uconn net.Conn, socketPath string) {
 	defer uconn.Close()
-	tconn, err := net.Dial("tcp", "0.0.0.0:"+strconv.Itoa(port))
+	tconn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		logerr(err.Error())
 		return
