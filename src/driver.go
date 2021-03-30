@@ -32,7 +32,7 @@ func (d *Driver) load(savePath string) error {
 			return err
 		}
 		var volumes []volume.CreateRequest
-		json.Unmarshal(data, volumes)
+		json.Unmarshal(data, &volumes)
 		for _, r := range volumes {
 			err := d.createVolume(&r)
 			if err != nil {
@@ -115,7 +115,7 @@ func (d *Driver) removeVolume(v *Volume) error {
 func (d *Driver) manage() {
 	logerr("starting driver manager")
 	for {
-		logerr("driver has " + strconv.Itoa(len(d.volumes)) + "volumes")
+		logerr("driver is managing " + strconv.Itoa(len(d.volumes)) + " volumes")
 		for _, v := range d.volumes {
 			if v.weed == nil {
 				logerr(v.Name + ": mount not running")
