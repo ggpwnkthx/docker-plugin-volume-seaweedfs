@@ -37,7 +37,7 @@ func getFreePort() (int, error) {
 	if err != nil {
 		return 0, errors.New("freeport: " + err.Error())
 	}
-	if port != 0 && port < 55535 {
+	if port == 0 || port > 55535 {
 		return getFreePort()
 	}
 	return port, nil
