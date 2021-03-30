@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,32 +59,38 @@ func getFiler(alias string) (*Filer, error) {
 				Sock: filepath.Join(seaweedfsSockets, alias, "grpc.sock"),
 			},
 		}
+
 		if _, err := os.Stat(filer.http.Sock); os.IsNotExist(err) {
 			return &Filer{}, errors.New("http unix socket not found")
 		}
 		if _, err := os.Stat(filer.grpc.Sock); os.IsNotExist(err) {
 			return &Filer{}, errors.New("grpc unix socket not found")
 		}
+		/*
+			// Use socat
+			httpOptions := []string{
+				"-d",
+				"tcp-l:" + strconv.Itoa(filer.http.Port) + ",fork",
+				"unix:" + filer.http.Sock,
+			}
+			filer.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+			filer.http.Cmd.Stderr = Stderr
+			filer.http.Cmd.Stdout = Stdout
+			filer.http.Cmd.Start()
 
-		httpOptions := []string{
-			"-d",
-			"tcp-l:" + strconv.Itoa(filer.http.Port) + ",fork",
-			"unix:" + filer.http.Sock,
-		}
-		filer.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-		filer.http.Cmd.Stderr = Stderr
-		filer.http.Cmd.Stdout = Stdout
-		filer.http.Cmd.Start()
-
-		grpcOptions := []string{
-			"-d",
-			"tcp-l:" + strconv.Itoa(filer.grpc.Port) + ",fork",
-			"unix:" + filer.grpc.Sock,
-		}
-		filer.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-		filer.grpc.Cmd.Stderr = Stderr
-		filer.grpc.Cmd.Stdout = Stdout
-		filer.grpc.Cmd.Start()
+			grpcOptions := []string{
+				"-d",
+				"tcp-l:" + strconv.Itoa(filer.grpc.Port) + ",fork",
+				"unix:" + filer.grpc.Sock,
+			}
+			filer.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+			filer.grpc.Cmd.Stderr = Stderr
+			filer.grpc.Cmd.Stdout = Stdout
+			filer.grpc.Cmd.Start()
+		*/
+		// Use io.copy
+		go gocat_unix2tcp(filer.http.Sock, filer.http.Port)
+		go gocat_unix2tcp(filer.grpc.Sock, filer.grpc.Port)
 
 		setFiler(alias, filer)
 	}
@@ -92,4 +100,32 @@ func setFiler(alias string, filer *Filer) {
 	Filers.Lock()
 	defer Filers.Unlock()
 	Filers.list[alias] = filer
+}
+
+func gocat_unix2tcp(socketPath string, port int) {
+	for {
+		l, err := net.Listen("unix", socketPath)
+		if err != nil {
+			logerr(err.Error())
+			return
+		}
+		for {
+			uconn, err := l.Accept()
+			if err != nil {
+				logerr(err.Error())
+				continue
+			}
+			go gocat_forward(uconn, port)
+		}
+	}
+}
+func gocat_forward(uconn net.Conn, port int) {
+	defer uconn.Close()
+	tconn, err := net.Dial("tcp", "0.0.0.0:"+strconv.Itoa(port))
+	if err != nil {
+		logerr(err.Error())
+		return
+	}
+	go io.Copy(uconn, tconn)
+	io.Copy(tconn, uconn)
 }
