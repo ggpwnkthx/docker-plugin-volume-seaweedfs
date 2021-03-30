@@ -23,6 +23,8 @@ func (d *Driver) load(savePath string) error {
 	d.volumes = make(map[string]*Volume)
 	d.Unlock()
 
+	go d.manage()
+
 	if _, err := os.Stat(d.savePath); err == nil {
 		data, err := ioutil.ReadFile(d.savePath)
 		if err != nil {
@@ -37,9 +39,8 @@ func (d *Driver) load(savePath string) error {
 			}
 		}
 	} else {
-		return err
+		logerr("no save found")
 	}
-	go d.manage()
 	return nil
 }
 func (d *Driver) save() error {
