@@ -1,93 +1,107 @@
 package main
 
 import (
-	"errors"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/sirupsen/logrus"
 )
 
-// Get the list of capabilities the driver supports.
-// The driver is not required to implement Capabilities. If it is not implemented, the default values are used.
-func (d *Driver) Capabilities() *volume.CapabilitiesResponse {
-	return &volume.CapabilitiesResponse{Capabilities: volume.Capability{Scope: "global"}}
+type Driver struct {
+	sync.RWMutex
+	filers      map[string]*Filer
+	socketMount string
+	Stderr      *os.File
+	Stdout      *os.File
+	volumes     map[string]*Volume
 }
 
-// Create Instructs the plugin that the user wants to create a volume,
-// given a user specified volume name. The plugin does not need to actually
-// manifest the volume on the filesystem yet (until Mount is called).
-// Opts is a map of driver specific options passed through from the user request.
-func (d *Driver) Create(r *volume.CreateRequest) error {
-	if err := d.createVolume(r); err != nil {
-		return err
+type Filer struct {
+	http *Socat
+	grpc *Socat
+}
+
+type Socat struct {
+	Cmd  *exec.Cmd
+	Port int
+	Sock string
+}
+
+func loadDriver() *Driver {
+	d := &Driver{
+		filers:      map[string]*Filer{},
+		socketMount: "/var/lib/docker/plugins/seaweedfs/",
+		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
+		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
+		volumes:     map[string]*Volume{},
 	}
-	return nil
+	go d.manage()
+	return d
+}
+func (d *Driver) save() {
+	var volumes []Volume
+	d.RLock()
+	defer d.RUnlock()
+	for _, v := range d.volumes {
+		volumes = append(volumes, Volume{
+			Name:    v.Name,
+			Options: v.Options,
+		})
+	}
+	data, err := json.Marshal(volumes)
+	if err != nil {
+		logrus.WithField("savePath", savePath).Error(err)
+		return
+	}
+	if err := ioutil.WriteFile(savePath, data, 0644); err != nil {
+		logrus.WithField("savestate", savePath).Error(err)
+	}
 }
 
-// Get info about volume_name.
-func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
-		return &volume.GetResponse{Volume: &volume.Volume{
+func (d *Driver) listVolumes() []*volume.Volume {
+	d.RLock()
+	defer d.RUnlock()
+	var volumes []*volume.Volume
+	for _, v := range d.volumes {
+		volumes = append(volumes, &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
-			Status:     d.getVolumeStatus(v),
-		}}, nil
-	} else {
-		return &volume.GetResponse{}, errors.New("volume " + r.Name + " not found")
+			Status:     v.getStatus(),
+		})
 	}
+	return volumes
 }
 
-// List of volumes registered with the plugin.
-func (d *Driver) List() (*volume.ListResponse, error) {
-	return &volume.ListResponse{Volumes: d.listVolumes()}, nil
-}
+func (d *Driver) manage() {
+	for {
+		syncState := false
+		if _, err := os.Stat(savePath); err == nil {
+			data, err := ioutil.ReadFile(savePath)
+			if err != nil {
+				logrus.WithField("loadDriver", savePath).Error(err)
+			}
+			var volumes []Volume
+			json.Unmarshal(data, &volumes)
 
-// Mount is called once per container start.
-// If the same volume_name is requested more than once, the plugin may need to keep
-// track of each new mount request and provision at the first mount request and
-// deprovision at the last corresponding unmount request.
-// Docker requires the plugin to provide a volume, given a user specified volume name.
-// ID is a unique ID for the caller that is requesting the mount.
-func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
-		d.mountVolume(v)
-		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
-	} else {
-		return &volume.MountResponse{}, errors.New("volume " + r.Name + " not found")
-	}
-}
-
-// Path requests the path to the volume with the given volume_name.
-func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
-		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
-	} else {
-		return &volume.PathResponse{}, errors.New("volume " + r.Name + " not found")
-	}
-
-}
-
-// Remove the specified volume from disk. This request is issued when a
-// user invokes docker rm -v to remove volumes associated with a container.
-func (d *Driver) Remove(r *volume.RemoveRequest) error {
-	if v, found := d.volumes[r.Name]; found {
-		err := d.removeVolume(v)
-		if err != nil {
-			return err
+			for _, v := range volumes {
+				d.RLock()
+				vol := d.volumes[v.Name]
+				d.RUnlock()
+				if vol == nil {
+					v.Update()
+					syncState = true
+				}
+			}
+			if syncState {
+				d.save()
+			}
 		}
-		return nil
-	} else {
-		return errors.New("volume " + r.Name + " not found")
-	}
-}
-
-// Docker is no longer using the named volume.
-// Unmount is called once per container stop.
-// Plugin may deduce that it is safe to deprovision the volume at this point.
-// ID is a unique ID for the caller that is requesting the mount.
-func (d *Driver) Unmount(r *volume.UnmountRequest) error {
-	if v, found := d.volumes[r.Name]; found {
-		return d.unmountVolume(v)
-	} else {
-		return errors.New("volume " + r.Name + " not found")
+		time.Sleep(5 * time.Second)
 	}
 }
