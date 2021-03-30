@@ -22,7 +22,7 @@ type Driver struct {
 	sockets string
 	Stderr  *os.File
 	Stdout  *os.File
-	volumes map[string]*Volume
+	volumes map[string]Volume
 }
 
 type Filer struct {
@@ -42,7 +42,7 @@ func (d *Driver) load(socketsPath string) {
 	d.sockets = socketsPath
 	d.Stdout = os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout")
 	d.Stderr = os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr")
-	d.volumes = make(map[string]*Volume)
+	d.volumes = make(map[string]Volume)
 	d.Unlock()
 
 	if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
@@ -93,7 +93,7 @@ func (d *Driver) listVolumes() []*volume.Volume {
 	}
 	return volumes
 }
-func (d *Driver) updateVolume(v *Volume) error {
+func (d *Driver) updateVolume(v Volume) error {
 	d.Lock()
 	defer d.Unlock()
 	if v.Mountpoint != "" {

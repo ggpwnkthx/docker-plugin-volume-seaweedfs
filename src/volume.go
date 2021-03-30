@@ -67,7 +67,7 @@ func (v *Volume) Update() error {
 	v.weed.Stdout = v.Driver.Stdout
 	v.weed.Start()
 
-	err = v.Driver.updateVolume(v)
+	err = v.Driver.updateVolume(*v)
 	if err != nil {
 		return err
 	}
