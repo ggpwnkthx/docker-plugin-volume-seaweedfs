@@ -12,18 +12,16 @@ import (
 )
 
 type Volume struct {
-	Driver           *Driver
 	Mountpoint, Name string
 	Options          map[string]string
 	weed             *exec.Cmd
 }
 
-func (v *Volume) Create(d *Driver, r *volume.CreateRequest) error {
+func (v *Volume) Create(r *volume.CreateRequest) error {
 	_, ok := r.Options["filer"]
 	if !ok {
 		return errors.New("no filer address:port specified")
 	}
-	v.Driver = d
 	v.Name = r.Name
 	v.Options = r.Options
 
@@ -36,39 +34,35 @@ func (v *Volume) Create(d *Driver, r *volume.CreateRequest) error {
 }
 
 func (v *Volume) Update() error {
-	filer := strings.Split(v.Options["filer"], ":")[0]
-	if filer == "" {
+	alias := strings.Split(v.Options["filer"], ":")[0]
+	if alias == "" {
 		return errors.New("filer is nil")
 	}
-	f, err := v.Driver.getFiler(strings.Split(v.Options["filer"], ":")[0])
-	if err != nil {
-		return err
-	}
-	v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
-	mOptions := []string{
-		"mount",
-		"-allowOthers",
-		"-dir=" + v.Mountpoint,
-		"-dirAutoCreate",
-		"-filer=localhost:" + strconv.Itoa(f.http.Port),
-		"-volumeServerAccess=filerProxy",
-	}
-	for oKey, oValue := range v.Options {
-		if oKey != "filer" {
-			if oValue != "" {
-				mOptions = append(mOptions, "-"+oKey+"="+oValue)
-			} else {
-				mOptions = append(mOptions, "-"+oKey)
+	if f, ok := Filers.list[alias]; ok {
+		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
+		mOptions := []string{
+			"mount",
+			"-allowOthers",
+			"-dir=" + v.Mountpoint,
+			"-dirAutoCreate",
+			"-filer=localhost:" + strconv.Itoa(f.http.Port),
+			"-volumeServerAccess=filerProxy",
+		}
+		for oKey, oValue := range v.Options {
+			if oKey != "filer" {
+				if oValue != "" {
+					mOptions = append(mOptions, "-"+oKey+"="+oValue)
+				} else {
+					mOptions = append(mOptions, "-"+oKey)
+				}
 			}
 		}
-	}
-	v.weed = exec.Command("/usr/bin/weed", mOptions...)
-	v.weed.Stderr = v.Driver.Stderr
-	v.weed.Stdout = v.Driver.Stdout
-	v.weed.Start()
-
-	if err != nil {
-		return err
+		v.weed = exec.Command("/usr/bin/weed", mOptions...)
+		v.weed.Stderr = Stderr
+		v.weed.Stdout = Stdout
+		v.weed.Start()
+	} else {
+		return errors.New("filer not found")
 	}
 	return nil
 }

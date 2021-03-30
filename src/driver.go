@@ -5,47 +5,25 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
 	"sync"
-	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
-	"github.com/phayes/freeport"
 )
 
 type Driver struct {
 	sync.RWMutex
-	filers  map[string]*Filer
-	sockets string
-	Stderr  *os.File
-	Stdout  *os.File
-	volumes map[string]*Volume
+	savePath string
+	volumes  map[string]*Volume
 }
 
-type Filer struct {
-	http *Socat
-	grpc *Socat
-}
-
-type Socat struct {
-	Cmd  *exec.Cmd
-	Port int
-	Sock string
-}
-
-func (d *Driver) load(socketsPath string) error {
+func (d *Driver) load(savePath string) error {
 	d.Lock()
-	d.filers = make(map[string]*Filer)
-	d.sockets = socketsPath
-	d.Stdout = os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout")
-	d.Stderr = os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr")
+	d.savePath = savePath
 	d.volumes = make(map[string]*Volume)
 	d.Unlock()
 
-	if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
-		data, err := ioutil.ReadFile(d.sockets + "/volumes.json")
+	if _, err := os.Stat(d.savePath); err == nil {
+		data, err := ioutil.ReadFile(d.savePath)
 		if err != nil {
 			return err
 		}
@@ -76,15 +54,29 @@ func (d *Driver) save() error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(d.sockets+"/volumes.json", data, 0644); err != nil {
+	if err := ioutil.WriteFile(d.savePath, data, 0644); err != nil {
 		return err
 	}
 	return nil
 }
 
+func (d *Driver) updateVolume(v *Volume) error {
+	d.Lock()
+	defer d.Unlock()
+	if v.Mountpoint != "" {
+		if d.volumes == nil {
+			return errors.New("volumes map not initialized")
+		}
+		d.volumes[v.Name] = v
+	} else {
+		delete(d.volumes, v.Name)
+	}
+	d.save()
+	return nil
+}
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	v := new(Volume)
-	err := v.Create(d, r)
+	err := v.Create(r)
 	if err != nil {
 		return err
 	}
@@ -102,20 +94,6 @@ func (d *Driver) listVolumes() []*volume.Volume {
 		})
 	}
 	return volumes
-}
-func (d *Driver) updateVolume(v *Volume) error {
-	d.Lock()
-	defer d.Unlock()
-	if v.Mountpoint != "" {
-		if d.volumes == nil {
-			return errors.New("volumes map not initialized")
-		}
-		d.volumes[v.Name] = v
-	} else {
-		delete(d.volumes, v.Name)
-	}
-	d.save()
-	return nil
 }
 
 func (d *Driver) removeVolume(v *Volume) error {
@@ -152,66 +130,3 @@ func (d *Driver) manage() {
 	}
 }
 */
-func (d *Driver) getFiler(alias string) (*Filer, error) {
-	d.RLock()
-	_, ok := d.filers[alias]
-	d.RUnlock()
-	if !ok {
-		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
-		port := 0
-		for {
-			port, err := freeport.GetFreePort()
-			if err != nil {
-				return &Filer{}, errors.New("freeport: " + err.Error())
-			}
-			if port < 55535 {
-				break
-			}
-		}
-
-		filer := &Filer{
-			http: &Socat{
-				Port: port,
-				Sock: filepath.Join(d.sockets, alias, "http.sock"),
-			},
-			grpc: &Socat{
-				Port: port + 10000,
-				Sock: filepath.Join(d.sockets, alias, "grpc.sock"),
-			},
-		}
-		if _, err := os.Stat(filer.http.Sock); os.IsNotExist(err) {
-			return &Filer{}, errors.New("http unix socket not found")
-		}
-		if _, err := os.Stat(filer.grpc.Sock); os.IsNotExist(err) {
-			return &Filer{}, errors.New("grpc unix socket not found")
-		}
-
-		httpOptions := []string{
-			"-d",
-			"tcp-l:" + strconv.Itoa(filer.http.Port) + ",fork",
-			"unix:" + filer.http.Sock,
-		}
-		filer.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-		filer.http.Cmd.Stderr = d.Stderr
-		filer.http.Cmd.Stdout = d.Stdout
-		filer.http.Cmd.Start()
-
-		grpcOptions := []string{
-			"-d",
-			"tcp-l:" + strconv.Itoa(filer.grpc.Port) + ",fork",
-			"unix:" + filer.grpc.Sock,
-		}
-		filer.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-		filer.grpc.Cmd.Stderr = d.Stderr
-		filer.grpc.Cmd.Stdout = d.Stdout
-		filer.grpc.Cmd.Start()
-
-		d.setFiler(alias, filer)
-	}
-	return d.filers[alias], nil
-}
-func (d *Driver) setFiler(alias string, filer *Filer) {
-	d.Lock()
-	defer d.Unlock()
-	d.filers[alias] = filer
-}

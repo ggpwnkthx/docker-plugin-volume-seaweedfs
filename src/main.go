@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"syscall"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/sirupsen/logrus"
@@ -10,9 +12,12 @@ import (
 const dockerSocket = "/run/docker/plugins/volumedriver.sock"
 const seaweedfsSockets = "/var/lib/docker/plugins/seaweedfs"
 
+var Stdout = os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout")
+var Stderr = os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr")
+
 func main() {
 	d := new(Driver)
-	err := d.load(seaweedfsSockets)
+	err := d.load(seaweedfsSockets + "/volumes.json")
 	if err != nil {
 		logrus.Error(err)
 	} else {
