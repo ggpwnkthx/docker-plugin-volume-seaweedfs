@@ -41,6 +41,7 @@ func (v *Volume) Update() error {
 
 	f, err := getFiler(alias)
 	if err != nil {
+		logerr(v.Name + ": filer not found")
 		return errors.New("filer not found")
 	}
 

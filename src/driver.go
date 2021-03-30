@@ -114,6 +114,7 @@ func (d *Driver) manage() {
 	for {
 		for _, v := range d.volumes {
 			if v.weed == nil {
+				logerr(v.Name + ": mount not running")
 				v.Update()
 			}
 		}
