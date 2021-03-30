@@ -19,16 +19,14 @@ type Volume struct {
 	weed             *exec.Cmd
 }
 
-func (v Volume) Create(d *Driver, r *volume.CreateRequest) error {
+func (v *Volume) Create(d *Driver, r *volume.CreateRequest) error {
 	_, ok := r.Options["filer"]
 	if !ok {
 		return errors.New("no filer address:port specified")
 	}
-	v = Volume{
-		Driver:  d,
-		Name:    r.Name,
-		Options: r.Options,
-	}
+	v.Driver = d
+	v.Name = r.Name
+	v.Options = r.Options
 	v.Update()
 
 	return nil
