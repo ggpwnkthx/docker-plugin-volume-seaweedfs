@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -38,6 +39,7 @@ func (d *Driver) load(savePath string) error {
 	} else {
 		return err
 	}
+	go d.manage()
 	return nil
 }
 func (d *Driver) save() error {
@@ -115,32 +117,13 @@ func (d *Driver) removeVolume(v *Volume) error {
 	return d.save()
 }
 
-/*
 func (d *Driver) manage() {
 	for {
-		syncState := false
-		if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
-			data, err := ioutil.ReadFile(d.sockets + "/volumes.json")
-			if err != nil {
-				logrus.WithField("loadDriver", d.sockets+"/volumes.json").Error(err)
-			}
-			var volumes []Volume
-			json.Unmarshal(data, &volumes)
-
-			for _, v := range volumes {
-				d.RLock()
-				vol := d.volumes[v.Name]
-				d.RUnlock()
-				if vol == nil {
-					v.Update()
-					syncState = true
-				}
-			}
-			if syncState {
-				d.save()
+		for _, v := range d.volumes {
+			if v.weed == nil {
+				v.Update()
 			}
 		}
 		time.Sleep(5 * time.Second)
 	}
 }
-*/
