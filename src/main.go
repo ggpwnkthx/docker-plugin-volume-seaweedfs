@@ -12,10 +12,14 @@ const seaweedfsSockets = "/var/lib/docker/plugins/seaweedfs"
 
 func main() {
 	d := new(Driver)
-	d.load(seaweedfsSockets)
-	h := volume.NewHandler(d)
-	logrus.Infof("listening on %s", dockerSocket)
-	logrus.Error(h.ServeUnix(dockerSocket, 0))
+	err := d.load(seaweedfsSockets)
+	if err != nil {
+		logrus.Error(err)
+	} else {
+		h := volume.NewHandler(d)
+		logrus.Infof("listening on %s", dockerSocket)
+		logrus.Error(h.ServeUnix(dockerSocket, 0))
+	}
 }
 
 // Get the list of capabilities the driver supports.

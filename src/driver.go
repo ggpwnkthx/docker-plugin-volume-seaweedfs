@@ -13,7 +13,6 @@ import (
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/phayes/freeport"
-	"github.com/sirupsen/logrus"
 )
 
 type Driver struct {
@@ -36,7 +35,7 @@ type Socat struct {
 	Sock string
 }
 
-func (d *Driver) load(socketsPath string) {
+func (d *Driver) load(socketsPath string) error {
 	d.Lock()
 	d.filers = make(map[string]*Filer)
 	d.sockets = socketsPath
@@ -48,20 +47,27 @@ func (d *Driver) load(socketsPath string) {
 	if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
 		data, err := ioutil.ReadFile(d.sockets + "/volumes.json")
 		if err != nil {
-			logrus.WithField("Driver.load()", d.sockets+"/volumes.json").Error(err)
+			return err
 		}
-		json.Unmarshal(data, &d.volumes)
-		for _, v := range d.volumes {
-			v.Update()
+		var volumes []volume.CreateRequest
+		json.Unmarshal(data, volumes)
+		for _, r := range volumes {
+			err := d.createVolume(&r)
+			if err != nil {
+				return err
+			}
 		}
+	} else {
+		return err
 	}
+	return nil
 }
 func (d *Driver) save() error {
-	var volumes []Volume
+	var volumes []volume.CreateRequest
 	d.RLock()
 	defer d.RUnlock()
 	for _, v := range d.volumes {
-		volumes = append(volumes, Volume{
+		volumes = append(volumes, volume.CreateRequest{
 			Name:    v.Name,
 			Options: v.Options,
 		})
@@ -114,8 +120,7 @@ func (d *Driver) updateVolume(v *Volume) error {
 
 func (d *Driver) removeVolume(v *Volume) error {
 	v.Remove()
-	d.updateVolume(v)
-	return nil
+	return d.updateVolume(v)
 }
 
 /*
