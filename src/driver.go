@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -114,6 +115,7 @@ func (d *Driver) removeVolume(v *Volume) error {
 func (d *Driver) manage() {
 	logerr("starting driver manager")
 	for {
+		logerr("driver has " + strconv.Itoa(len(d.volumes)) + "volumes")
 		for _, v := range d.volumes {
 			if v.weed == nil {
 				logerr(v.Name + ": mount not running")
