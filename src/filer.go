@@ -26,7 +26,9 @@ type Filer struct {
 var Filers = struct {
 	sync.RWMutex
 	list map[string]*Filer
-}{}
+}{
+	list: map[string]*Filer{},
+}
 
 func getFiler(alias string) (*Filer, error) {
 	Filers.RLock()
