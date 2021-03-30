@@ -31,7 +31,7 @@ func (d *Driver) load(savePath string) error {
 		var volumes []volume.CreateRequest
 		json.Unmarshal(data, volumes)
 		for _, r := range volumes {
-			_, err := d.addVolume(&r)
+			err := d.createVolume(&r)
 			if err != nil {
 				return err
 			}
@@ -75,16 +75,9 @@ func (d *Driver) updateVolume(v *Volume) error {
 	}
 	return nil
 }
-func (d *Driver) addVolume(r *volume.CreateRequest) (*Volume, error) {
+func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	v := new(Volume)
 	err := v.Create(r)
-	if err != nil {
-		return &Volume{}, err
-	}
-	return v, nil
-}
-func (d *Driver) createVolume(r *volume.CreateRequest) error {
-	v, err := d.addVolume(r)
 	if err != nil {
 		return err
 	}
