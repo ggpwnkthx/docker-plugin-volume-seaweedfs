@@ -32,22 +32,29 @@ var Filers = struct {
 	list: map[string]*Filer{},
 }
 
+func getFreePort() (int, error) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return 0, errors.New("freeport: " + err.Error())
+	}
+	if port != 0 && port < 55535 {
+		return getFreePort()
+	}
+	return port, nil
+}
+
 func getFiler(alias string) (*Filer, error) {
 	Filers.RLock()
 	_, ok := Filers.list[alias]
 	Filers.RUnlock()
 	if !ok {
+		logerr("alias " + alias + " doesn't exists")
 		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
-		port := 0
-		for {
-			port, err := freeport.GetFreePort()
-			if err != nil {
-				return &Filer{}, errors.New("freeport: " + err.Error())
-			}
-			if port != 0 && port < 55535 {
-				break
-			}
+		port, err := getFreePort()
+		if err != nil {
+			return &Filer{}, err
 		}
+		logerr("using port " + strconv.Itoa(port))
 
 		filer := &Filer{
 			http: &Socat{
@@ -104,7 +111,7 @@ func setFiler(alias string, filer *Filer) {
 
 func gocat_tcp2unix(port int, socketPath string) {
 	for {
-		l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
+		l, err := net.Listen("tcp", "localhost:"+strconv.Itoa(port))
 		if err != nil {
 			logerr(err.Error())
 			return

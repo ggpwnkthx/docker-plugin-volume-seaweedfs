@@ -62,6 +62,7 @@ func (v *Volume) Update() error {
 			}
 		}
 	}
+	logerr(mOptions...)
 	v.weed = exec.Command("/usr/bin/weed", mOptions...)
 	v.weed.Stderr = Stderr
 	v.weed.Stdout = Stdout
