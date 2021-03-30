@@ -38,32 +38,35 @@ func (v *Volume) Update() error {
 	if alias == "" {
 		return errors.New("filer is nil")
 	}
-	if f, ok := Filers.list[alias]; ok {
-		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
-		mOptions := []string{
-			"mount",
-			"-allowOthers",
-			"-dir=" + v.Mountpoint,
-			"-dirAutoCreate",
-			"-filer=localhost:" + strconv.Itoa(f.http.Port),
-			"-volumeServerAccess=filerProxy",
-		}
-		for oKey, oValue := range v.Options {
-			if oKey != "filer" {
-				if oValue != "" {
-					mOptions = append(mOptions, "-"+oKey+"="+oValue)
-				} else {
-					mOptions = append(mOptions, "-"+oKey)
-				}
-			}
-		}
-		v.weed = exec.Command("/usr/bin/weed", mOptions...)
-		v.weed.Stderr = Stderr
-		v.weed.Stdout = Stdout
-		v.weed.Start()
-	} else {
+
+	f, err := getFiler(alias)
+	if err != nil {
 		return errors.New("filer not found")
 	}
+
+	v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
+	mOptions := []string{
+		"mount",
+		"-allowOthers",
+		"-dir=" + v.Mountpoint,
+		"-dirAutoCreate",
+		"-filer=localhost:" + strconv.Itoa(f.http.Port),
+		"-volumeServerAccess=filerProxy",
+	}
+	for oKey, oValue := range v.Options {
+		if oKey != "filer" {
+			if oValue != "" {
+				mOptions = append(mOptions, "-"+oKey+"="+oValue)
+			} else {
+				mOptions = append(mOptions, "-"+oKey)
+			}
+		}
+	}
+	v.weed = exec.Command("/usr/bin/weed", mOptions...)
+	v.weed.Stderr = Stderr
+	v.weed.Stdout = Stdout
+	v.weed.Start()
+
 	return nil
 }
 func (v *Volume) Remove() error {
@@ -72,6 +75,7 @@ func (v *Volume) Remove() error {
 		if err != nil {
 			return err
 		}
+		v.weed.Wait()
 		err = os.RemoveAll(v.Mountpoint)
 		if err != nil {
 			return err
