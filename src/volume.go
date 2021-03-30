@@ -67,21 +67,11 @@ func (v *Volume) Update() error {
 	v.weed.Stdout = v.Driver.Stdout
 	v.weed.Start()
 
-	err = v.Driver.updateVolume(*v)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
-func (v *Volume) Mount() error {
-	return nil
-}
-
-func (v *Volume) Unmount() error {
-	return nil
-}
-
 func (v *Volume) Remove() error {
 	if _, err := os.Stat(v.Mountpoint); !os.IsNotExist(err) {
 		err := exec.Command("umount", v.Mountpoint).Run()
@@ -94,7 +84,14 @@ func (v *Volume) Remove() error {
 		}
 	}
 	v.Mountpoint = ""
-	v.Driver.updateVolume(*v)
+	return nil
+}
+
+func (v *Volume) Mount() error {
+	return nil
+}
+
+func (v *Volume) Unmount() error {
 	return nil
 }
 

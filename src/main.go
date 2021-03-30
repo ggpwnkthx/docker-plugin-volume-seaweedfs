@@ -82,7 +82,7 @@ func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 // user invokes docker rm -v to remove volumes associated with a container.
 func (d *Driver) Remove(r *volume.RemoveRequest) error {
 	if v, found := d.volumes[r.Name]; found {
-		err := v.Remove()
+		err := d.removeVolume(v)
 		if err != nil {
 			return err
 		}
