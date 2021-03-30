@@ -112,6 +112,7 @@ func (d *Driver) removeVolume(v *Volume) error {
 }
 
 func (d *Driver) manage() {
+	logerr("starting driver manager")
 	for {
 		for _, v := range d.volumes {
 			if v.weed == nil {
