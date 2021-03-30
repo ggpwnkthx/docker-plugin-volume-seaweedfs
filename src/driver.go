@@ -2,24 +2,27 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/phayes/freeport"
 	"github.com/sirupsen/logrus"
 )
 
 type Driver struct {
 	sync.RWMutex
-	filers      map[string]*Filer
-	socketMount string
-	Stderr      *os.File
-	Stdout      *os.File
-	volumes     map[string]*Volume
+	filers  map[string]*Filer
+	sockets string
+	Stderr  *os.File
+	Stdout  *os.File
+	volumes map[string]*Volume
 }
 
 type Filer struct {
@@ -33,16 +36,25 @@ type Socat struct {
 	Sock string
 }
 
-func loadDriver() *Driver {
-	d := &Driver{
-		filers:      map[string]*Filer{},
-		socketMount: "/var/lib/docker/plugins/seaweedfs/",
-		Stdout:      os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout"),
-		Stderr:      os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr"),
-		volumes:     map[string]*Volume{},
+func (d *Driver) load(socketsPath string) {
+	d.Lock()
+	d.filers = map[string]*Filer{}
+	d.sockets = socketsPath
+	d.Stdout = os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout")
+	d.Stderr = os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr")
+	d.volumes = map[string]*Volume{}
+	d.Unlock()
+
+	if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
+		data, err := ioutil.ReadFile(d.sockets + "/volumes.json")
+		if err != nil {
+			logrus.WithField("Driver.load()", d.sockets+"/volumes.json").Error(err)
+		}
+		json.Unmarshal(data, &d.volumes)
+		for _, v := range d.volumes {
+			v.Update()
+		}
 	}
-	go d.manage()
-	return d
 }
 func (d *Driver) save() {
 	var volumes []Volume
@@ -56,14 +68,18 @@ func (d *Driver) save() {
 	}
 	data, err := json.Marshal(volumes)
 	if err != nil {
-		logrus.WithField("savePath", savePath).Error(err)
+		logrus.WithField("Driver.save()", d.sockets+"/volumes.json").Error(err)
 		return
 	}
-	if err := ioutil.WriteFile(savePath, data, 0644); err != nil {
-		logrus.WithField("savestate", savePath).Error(err)
+	if err := ioutil.WriteFile(d.sockets+"/volumes.json", data, 0644); err != nil {
+		logrus.WithField("Driver.save()", d.sockets+"/volumes.json").Error(err)
 	}
 }
 
+func (d *Driver) createVolume(r *volume.CreateRequest) error {
+	v := new(Volume)
+	return v.Create(d, r)
+}
 func (d *Driver) listVolumes() []*volume.Volume {
 	d.RLock()
 	defer d.RUnlock()
@@ -77,14 +93,26 @@ func (d *Driver) listVolumes() []*volume.Volume {
 	}
 	return volumes
 }
+func (d *Driver) updateVolume(v *Volume) error {
+	d.Lock()
+	defer d.Unlock()
+	if v.Mountpoint != "" {
+		d.volumes[v.Name] = v
+	} else {
+		delete(d.volumes, v.Name)
+	}
+	d.save()
+	return nil
+}
 
+/*
 func (d *Driver) manage() {
 	for {
 		syncState := false
-		if _, err := os.Stat(savePath); err == nil {
-			data, err := ioutil.ReadFile(savePath)
+		if _, err := os.Stat(d.sockets + "/volumes.json"); err == nil {
+			data, err := ioutil.ReadFile(d.sockets + "/volumes.json")
 			if err != nil {
-				logrus.WithField("loadDriver", savePath).Error(err)
+				logrus.WithField("loadDriver", d.sockets+"/volumes.json").Error(err)
 			}
 			var volumes []Volume
 			json.Unmarshal(data, &volumes)
@@ -104,4 +132,64 @@ func (d *Driver) manage() {
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+*/
+func (d *Driver) getFiler(alias string) (*Filer, error) {
+	d.RLock()
+	_, ok := d.filers[alias]
+	d.RUnlock()
+	if !ok {
+		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
+		port := 0
+		for {
+			port, err := freeport.GetFreePort()
+			if err != nil {
+				return &Filer{}, errors.New("freeport: " + err.Error())
+			}
+			if port < 55535 {
+				break
+			}
+		}
+
+		socats := &Filer{
+			http: &Socat{
+				Port: port,
+				Sock: filepath.Join(d.sockets, alias, "http.sock"),
+			},
+			grpc: &Socat{
+				Port: port + 10000,
+				Sock: filepath.Join(d.sockets, alias, "grpc.sock"),
+			},
+		}
+		if _, err := os.Stat(socats.http.Sock); os.IsNotExist(err) {
+			return &Filer{}, errors.New("http unix socket not found")
+		}
+		if _, err := os.Stat(socats.grpc.Sock); os.IsNotExist(err) {
+			return &Filer{}, errors.New("grpc unix socket not found")
+		}
+
+		httpOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:" + strconv.Itoa(socats.http.Port) + ",fork",
+			"unix:" + socats.http.Sock,
+		}
+		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+		socats.http.Cmd.Stderr = d.Stderr
+		socats.http.Cmd.Stdout = d.Stdout
+		socats.http.Cmd.Start()
+
+		grpcOptions := []string{
+			"-d", "-d", "-d",
+			"tcp-l:" + strconv.Itoa(socats.grpc.Port) + ",fork",
+			"unix:" + socats.grpc.Sock,
+		}
+		socats.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+		socats.grpc.Cmd.Stderr = d.Stderr
+		socats.grpc.Cmd.Stdout = d.Stdout
+		socats.grpc.Cmd.Start()
+		d.Lock()
+		defer d.Unlock()
+		d.filers[alias] = socats
+	}
+	return d.filers[alias], nil
 }

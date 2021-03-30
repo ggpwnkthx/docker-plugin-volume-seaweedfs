@@ -7,8 +7,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const socketAddress = "/run/docker/plugins/volumedriver.sock"
-const savePath = "/var/lib/docker/plugins/seaweedfs/volumes.json"
+const dockerSocket = "/run/docker/plugins/volumedriver.sock"
+const seaweedfsSockets = "/var/lib/docker/plugins/seaweedfs"
+
+func main() {
+	d := new(Driver)
+	d.load(seaweedfsSockets)
+	h := volume.NewHandler(d)
+	logrus.Infof("listening on %s", dockerSocket)
+	logrus.Error(h.ServeUnix(dockerSocket, 0))
+}
 
 // Get the list of capabilities the driver supports.
 // The driver is not required to implement Capabilities. If it is not implemented, the default values are used.
@@ -21,7 +29,7 @@ func (d *Driver) Capabilities() *volume.CapabilitiesResponse {
 // manifest the volume on the filesystem yet (until Mount is called).
 // Opts is a map of driver specific options passed through from the user request.
 func (d *Driver) Create(r *volume.CreateRequest) error {
-	if err := CreateVolume(d, r); err != nil {
+	if err := d.createVolume(r); err != nil {
 		return err
 	}
 	return nil
@@ -94,11 +102,4 @@ func (d *Driver) Unmount(r *volume.UnmountRequest) error {
 	} else {
 		return errors.New("volume " + r.Name + " not found")
 	}
-}
-
-func main() {
-	d := loadDriver()
-	h := volume.NewHandler(d)
-	logrus.Infof("listening on %s", socketAddress)
-	logrus.Error(h.ServeUnix(socketAddress, 0))
 }
