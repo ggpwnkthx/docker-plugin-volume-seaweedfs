@@ -97,6 +97,9 @@ func (d *Driver) updateVolume(v *Volume) error {
 	d.Lock()
 	defer d.Unlock()
 	if v.Mountpoint != "" {
+		if d.volumes == nil {
+			d.volumes = make(map[string]*Volume)
+		}
 		d.volumes[v.Name] = v
 	} else {
 		delete(d.volumes, v.Name)
@@ -187,9 +190,13 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 		socats.grpc.Cmd.Stderr = d.Stderr
 		socats.grpc.Cmd.Stdout = d.Stdout
 		socats.grpc.Cmd.Start()
-		d.Lock()
-		defer d.Unlock()
-		d.filers[alias] = socats
+
+		d.setFiler(alias, socats)
 	}
 	return d.filers[alias], nil
+}
+func (d *Driver) setFiler(alias string, filer *Filer) {
+	d.Lock()
+	defer d.Unlock()
+	d.filers[alias] = filer
 }
