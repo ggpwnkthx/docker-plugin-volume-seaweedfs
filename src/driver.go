@@ -169,7 +169,7 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 			}
 		}
 
-		socats := &Filer{
+		filer := &Filer{
 			http: &Socat{
 				Port: port,
 				Sock: filepath.Join(d.sockets, alias, "http.sock"),
@@ -179,34 +179,34 @@ func (d *Driver) getFiler(alias string) (*Filer, error) {
 				Sock: filepath.Join(d.sockets, alias, "grpc.sock"),
 			},
 		}
-		if _, err := os.Stat(socats.http.Sock); os.IsNotExist(err) {
+		if _, err := os.Stat(filer.http.Sock); os.IsNotExist(err) {
 			return &Filer{}, errors.New("http unix socket not found")
 		}
-		if _, err := os.Stat(socats.grpc.Sock); os.IsNotExist(err) {
+		if _, err := os.Stat(filer.grpc.Sock); os.IsNotExist(err) {
 			return &Filer{}, errors.New("grpc unix socket not found")
 		}
 
 		httpOptions := []string{
-			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(socats.http.Port) + ",fork",
-			"unix:" + socats.http.Sock,
+			"-d",
+			"tcp-l:" + strconv.Itoa(filer.http.Port) + ",fork",
+			"unix:" + filer.http.Sock,
 		}
-		socats.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-		socats.http.Cmd.Stderr = d.Stderr
-		socats.http.Cmd.Stdout = d.Stdout
-		socats.http.Cmd.Start()
+		filer.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
+		filer.http.Cmd.Stderr = d.Stderr
+		filer.http.Cmd.Stdout = d.Stdout
+		filer.http.Cmd.Start()
 
 		grpcOptions := []string{
-			"-d", "-d", "-d",
-			"tcp-l:" + strconv.Itoa(socats.grpc.Port) + ",fork",
-			"unix:" + socats.grpc.Sock,
+			"-d",
+			"tcp-l:" + strconv.Itoa(filer.grpc.Port) + ",fork",
+			"unix:" + filer.grpc.Sock,
 		}
-		socats.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-		socats.grpc.Cmd.Stderr = d.Stderr
-		socats.grpc.Cmd.Stdout = d.Stdout
-		socats.grpc.Cmd.Start()
+		filer.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
+		filer.grpc.Cmd.Stderr = d.Stderr
+		filer.grpc.Cmd.Stdout = d.Stdout
+		filer.grpc.Cmd.Start()
 
-		d.setFiler(alias, socats)
+		d.setFiler(alias, filer)
 	}
 	return d.filers[alias], nil
 }
