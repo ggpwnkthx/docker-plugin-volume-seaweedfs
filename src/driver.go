@@ -71,7 +71,6 @@ func (d *Driver) updateVolume(v *Volume) error {
 	} else {
 		delete(d.volumes, v.Name)
 	}
-	d.save()
 	return nil
 }
 func (d *Driver) addVolume(r *volume.CreateRequest) (*Volume, error) {
@@ -87,7 +86,11 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	if err != nil {
 		return err
 	}
-	return d.updateVolume(v)
+	err = d.updateVolume(v)
+	if err != nil {
+		return err
+	}
+	return d.save()
 }
 func (d *Driver) listVolumes() []*volume.Volume {
 	d.RLock()
@@ -105,7 +108,11 @@ func (d *Driver) listVolumes() []*volume.Volume {
 
 func (d *Driver) removeVolume(v *Volume) error {
 	v.Remove()
-	return d.updateVolume(v)
+	err := d.updateVolume(v)
+	if err != nil {
+		return err
+	}
+	return d.save()
 }
 
 /*
