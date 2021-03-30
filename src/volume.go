@@ -94,7 +94,7 @@ func (v *Volume) Remove() error {
 		}
 	}
 	v.Mountpoint = ""
-	v.Driver.updateVolume(v)
+	v.Driver.updateVolume(*v)
 	return nil
 }
 
