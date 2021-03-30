@@ -97,9 +97,6 @@ func (d *Driver) updateVolume(v *Volume) error {
 	d.Lock()
 	defer d.Unlock()
 	if v.Mountpoint != "" {
-		if d.volumes == nil {
-			d.volumes = make(map[string]*Volume)
-		}
 		d.volumes[v.Name] = v
 	} else {
 		delete(d.volumes, v.Name)
