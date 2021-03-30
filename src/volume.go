@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/docker/go-plugins-helpers/volume"
-	"github.com/sirupsen/logrus"
 )
 
 type Volume struct {
@@ -27,21 +26,23 @@ func (v *Volume) Create(d *Driver, r *volume.CreateRequest) error {
 	v.Driver = d
 	v.Name = r.Name
 	v.Options = r.Options
-	v.Update()
+
+	err := v.Update()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (v *Volume) Update() {
+func (v *Volume) Update() error {
 	filer := strings.Split(v.Options["filer"], ":")[0]
 	if filer == "" {
-		logrus.WithField("filer", filer).Error(errors.New("filer is nil"))
-		return
+		return errors.New("filer is nil")
 	}
-	f, err := v.getFiler()
+	f, err := v.Driver.getFiler(strings.Split(v.Options["filer"], ":")[0])
 	if err != nil {
-		logrus.WithField("getFiler", f).Error(err)
-		return
+		return err
 	}
 	v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
 	mOptions := []string{
@@ -66,7 +67,11 @@ func (v *Volume) Update() {
 	v.weed.Stdout = v.Driver.Stdout
 	v.weed.Start()
 
-	v.Driver.updateVolume(v)
+	err = v.Driver.updateVolume(v)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (v *Volume) Mount() error {
@@ -97,8 +102,4 @@ func (v *Volume) getStatus() map[string]interface{} {
 	status := make(map[string]interface{})
 	status["weed"] = v.weed
 	return status
-}
-
-func (v *Volume) getFiler() (*Filer, error) {
-	return v.Driver.getFiler(strings.Split(v.Options["filer"], ":")[0])
 }

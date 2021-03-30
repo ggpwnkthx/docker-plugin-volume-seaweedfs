@@ -56,7 +56,7 @@ func (d *Driver) load(socketsPath string) {
 		}
 	}
 }
-func (d *Driver) save() {
+func (d *Driver) save() error {
 	var volumes []Volume
 	d.RLock()
 	defer d.RUnlock()
@@ -68,12 +68,12 @@ func (d *Driver) save() {
 	}
 	data, err := json.Marshal(volumes)
 	if err != nil {
-		logrus.WithField("Driver.save()", d.sockets+"/volumes.json").Error(err)
-		return
+		return err
 	}
 	if err := ioutil.WriteFile(d.sockets+"/volumes.json", data, 0644); err != nil {
-		logrus.WithField("Driver.save()", d.sockets+"/volumes.json").Error(err)
+		return err
 	}
+	return nil
 }
 
 func (d *Driver) createVolume(r *volume.CreateRequest) error {
@@ -97,6 +97,9 @@ func (d *Driver) updateVolume(v *Volume) error {
 	d.Lock()
 	defer d.Unlock()
 	if v.Mountpoint != "" {
+		if d.volumes == nil {
+			return errors.New("volumes map not initialized")
+		}
 		d.volumes[v.Name] = v
 	} else {
 		delete(d.volumes, v.Name)
