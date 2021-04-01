@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -118,4 +121,24 @@ func (d *Driver) manage() {
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+func (d *Driver) getConfigFromSock(sockPath string) (*[]volume.CreateRequest, error) {
+	var volumes []volume.CreateRequest
+
+	httpc := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", sockPath)
+			},
+		},
+	}
+	response, err := httpc.Get("http://localhost/volumes.json")
+	if err != nil {
+		return &volumes, err
+	}
+	data, err := ioutil.ReadAll(response.Body)
+
+	json.Unmarshal(data, &volumes)
+
+	return &volumes, nil
 }
