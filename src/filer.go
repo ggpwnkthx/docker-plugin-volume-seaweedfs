@@ -41,7 +41,7 @@ func (f *Filer) listVolumes() (*[]volume.CreateRequest, error) {
 	path := filepath.Join("/mnt", f.alias, "volumes.json")
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return &volumes, err
+		return &volumes, nil
 	}
 	if data == nil {
 		return &volumes, nil
