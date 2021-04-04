@@ -25,6 +25,7 @@ func (v *Volume) Create(r *volume.CreateRequest) error {
 	v.Name = r.Name
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
+	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
 	return nil
 }
 
@@ -45,6 +46,7 @@ func (v *Volume) Remove() error {
 }
 
 func (v *Volume) Mount() error {
+	logerr("mounting " + v.Name)
 	if v.weed == nil {
 		f, err := getFiler(v.Options["filer"])
 		if err != nil {
