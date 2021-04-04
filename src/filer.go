@@ -1,22 +1,15 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"mime"
-	"mime/multipart"
 	"net"
-	"net/http"
-	"net/textproto"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -30,9 +23,10 @@ type Socat struct {
 }
 
 type Filer struct {
-	client http.Client
-	http   *Socat
-	grpc   *Socat
+	alias string
+	weed  *exec.Cmd
+	http  *Socat
+	grpc  *Socat
 }
 
 var Filers = struct {
@@ -44,7 +38,8 @@ var Filers = struct {
 
 func (f *Filer) listVolumes() (*[]volume.CreateRequest, error) {
 	var volumes []volume.CreateRequest
-	data, err := f.getFile("volumes.json")
+	path := filepath.Join("/mnt", f.alias, "volumes.json")
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return &volumes, err
 	}
@@ -59,64 +54,9 @@ func (f *Filer) saveVolumes(v []volume.CreateRequest) error {
 	if err != nil {
 		return err
 	}
-	f.setFile("volumes.json", data)
+	path := filepath.Join("/mnt", f.alias, "volumes.json")
+	ioutil.WriteFile(path, data, 0644)
 	return nil
-}
-func (f *Filer) getFile(path string) ([]byte, error) {
-	response, err := f.client.Get("http://localhost/" + path)
-	if err != nil {
-		return nil, err
-	}
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-func (f *Filer) setFile(path string, data []byte) error {
-	filename := strings.Split(path, "/")[len(strings.Split(path, "/"))-1]
-
-	reader, writer := io.Pipe()
-	defer reader.Close()
-	defer writer.Close()
-	mw := multipart.NewWriter(writer)
-
-	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
-	mtype := mime.TypeByExtension(strings.ToLower(filepath.Ext(filename)))
-	if mtype != "" {
-		header.Set("Content-Type", mtype)
-	}
-	part, err := mw.CreatePart(header)
-	if err != nil {
-		return err
-	}
-	_, err = part.Write(data)
-
-	if err == nil {
-		if err = mw.Close(); err == nil {
-			err = writer.Close()
-		} else {
-			_ = writer.Close()
-		}
-	} else {
-		_ = mw.Close()
-		_ = writer.Close()
-	}
-	if err != nil {
-		return err
-	}
-
-	response, err := f.client.Post(path, mw.FormDataContentType(), reader)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	content, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	return errors.New(string(content))
 }
 
 func isFiler(alias string) bool {
@@ -140,6 +80,7 @@ func createFiler(alias string) error {
 	logerr("using port " + strconv.Itoa(port))
 
 	filer := &Filer{
+		alias: alias,
 		http: &Socat{
 			Port: port,
 			Sock: filepath.Join(seaweedfsSockets, alias, "http.sock"),
@@ -160,13 +101,19 @@ func createFiler(alias string) error {
 	go gocat_tcp2unix(filer.http.Port, filer.http.Sock)
 	go gocat_tcp2unix(filer.grpc.Port, filer.grpc.Sock)
 
-	filer.client = http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", filer.http.Sock)
-			},
-		},
+	mountpoint := filepath.Join("/mnt", alias)
+	os.MkdirAll(mountpoint, os.ModePerm)
+
+	mOptions := []string{
+		"mount",
+		"-dir=" + mountpoint,
+		"-filer=localhost:" + strconv.Itoa(filer.http.Port),
+		"-volumeServerAccess=filerProxy",
 	}
+	filer.weed = exec.Command("/usr/bin/weed", mOptions...)
+	filer.weed.Stderr = Stderr
+	filer.weed.Stdout = Stdout
+	filer.weed.Start()
 
 	setFiler(alias, filer)
 
