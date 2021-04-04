@@ -24,7 +24,7 @@ func logerr(message ...string) {
 
 func main() {
 	d := new(Driver)
-	err := d.load(seaweedfsSockets + "/volumes.json")
+	err := d.load()
 	if err != nil {
 		logrus.Error(err)
 	} else {

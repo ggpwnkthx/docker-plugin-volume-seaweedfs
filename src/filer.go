@@ -1,13 +1,22 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"mime"
+	"mime/multipart"
 	"net"
+	"net/http"
+	"net/textproto"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -21,8 +30,9 @@ type Socat struct {
 }
 
 type Filer struct {
-	http *Socat
-	grpc *Socat
+	client http.Client
+	http   *Socat
+	grpc   *Socat
 }
 
 var Filers = struct {
@@ -30,6 +40,148 @@ var Filers = struct {
 	list map[string]*Filer
 }{
 	list: map[string]*Filer{},
+}
+
+func (f *Filer) listVolumes() (*[]volume.CreateRequest, error) {
+	var volumes []volume.CreateRequest
+	data, err := f.getFile("volumes.json")
+	if err != nil {
+		return &volumes, err
+	}
+	json.Unmarshal(data, &volumes)
+	return &volumes, nil
+}
+func (f *Filer) saveVolumes(v []volume.CreateRequest) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	f.setFile("volumes.json", data)
+	return nil
+}
+func (f *Filer) getFile(path string) ([]byte, error) {
+	response, err := f.client.Get("http://localhost/" + path)
+	if err != nil {
+		return []byte{}, err
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return []byte{}, err
+	}
+	return data, nil
+}
+func (f *Filer) setFile(path string, data []byte) error {
+	filename := strings.Split(path, "/")[len(strings.Split(path, "/"))-1]
+
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	mw := multipart.NewWriter(writer)
+
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
+	mtype := mime.TypeByExtension(strings.ToLower(filepath.Ext(filename)))
+	if mtype != "" {
+		header.Set("Content-Type", mtype)
+	}
+	part, err := mw.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	_, err = part.Write(data)
+
+	if err == nil {
+		if err = mw.Close(); err == nil {
+			err = writer.Close()
+		} else {
+			_ = writer.Close()
+		}
+	} else {
+		_ = mw.Close()
+		_ = writer.Close()
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = f.client.Post(path, mw.FormDataContentType(), reader)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isFiler(alias string) bool {
+	Filers.RLock()
+	defer Filers.RUnlock()
+	_, ok := Filers.list[alias]
+	return ok
+}
+func getFiler(alias string) (*Filer, error) {
+	if !isFiler(alias) {
+		logerr("alias " + alias + " doesn't exists")
+		createFiler(alias)
+	}
+	return Filers.list[alias], nil
+}
+func createFiler(alias string) error {
+	port, err := getFreePort()
+	if err != nil {
+		return err
+	}
+	logerr("using port " + strconv.Itoa(port))
+
+	filer := &Filer{
+		http: &Socat{
+			Port: port,
+			Sock: filepath.Join(seaweedfsSockets, alias, "http.sock"),
+		},
+		grpc: &Socat{
+			Port: port + 10000,
+			Sock: filepath.Join(seaweedfsSockets, alias, "grpc.sock"),
+		},
+	}
+
+	if _, err := os.Stat(filer.http.Sock); os.IsNotExist(err) {
+		return errors.New("http unix socket not found")
+	}
+	if _, err := os.Stat(filer.grpc.Sock); os.IsNotExist(err) {
+		return errors.New("grpc unix socket not found")
+	}
+
+	go gocat_tcp2unix(filer.http.Port, filer.http.Sock)
+	go gocat_tcp2unix(filer.grpc.Port, filer.grpc.Sock)
+
+	filer.client = http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", filer.http.Sock)
+			},
+		},
+	}
+
+	setFiler(alias, filer)
+
+	return nil
+}
+func setFiler(alias string, filer *Filer) {
+	Filers.Lock()
+	defer Filers.Unlock()
+	Filers.list[alias] = filer
+}
+func availableFilers() ([]string, error) {
+	dirs := []string{}
+	items, err := ioutil.ReadDir(seaweedfsSockets)
+	if err != nil {
+		return []string{}, err
+	}
+	for _, i := range items {
+		if i.IsDir() {
+			dirs = append(dirs, i.Name())
+		}
+	}
+	return dirs, nil
 }
 
 func getFreePort() (int, error) {
@@ -43,72 +195,6 @@ func getFreePort() (int, error) {
 	return port, nil
 }
 
-func getFiler(alias string) (*Filer, error) {
-	Filers.RLock()
-	_, ok := Filers.list[alias]
-	Filers.RUnlock()
-	if !ok {
-		logerr("alias " + alias + " doesn't exists")
-		os.MkdirAll(filepath.Join(volume.DefaultDockerRootDirectory, alias), os.ModeDir)
-		port, err := getFreePort()
-		if err != nil {
-			return &Filer{}, err
-		}
-		logerr("using port " + strconv.Itoa(port))
-
-		filer := &Filer{
-			http: &Socat{
-				Port: port,
-				Sock: filepath.Join(seaweedfsSockets, alias, "http.sock"),
-			},
-			grpc: &Socat{
-				Port: port + 10000,
-				Sock: filepath.Join(seaweedfsSockets, alias, "grpc.sock"),
-			},
-		}
-
-		if _, err := os.Stat(filer.http.Sock); os.IsNotExist(err) {
-			return &Filer{}, errors.New("http unix socket not found")
-		}
-		if _, err := os.Stat(filer.grpc.Sock); os.IsNotExist(err) {
-			return &Filer{}, errors.New("grpc unix socket not found")
-		}
-		/*
-			// Use socat
-			httpOptions := []string{
-				"-d",
-				"tcp-l:" + strconv.Itoa(filer.http.Port) + ",fork",
-				"unix:" + filer.http.Sock,
-			}
-			filer.http.Cmd = exec.Command("/usr/bin/socat", httpOptions...)
-			filer.http.Cmd.Stderr = Stderr
-			filer.http.Cmd.Stdout = Stdout
-			filer.http.Cmd.Start()
-
-			grpcOptions := []string{
-				"-d",
-				"tcp-l:" + strconv.Itoa(filer.grpc.Port) + ",fork",
-				"unix:" + filer.grpc.Sock,
-			}
-			filer.grpc.Cmd = exec.Command("/usr/bin/socat", grpcOptions...)
-			filer.grpc.Cmd.Stderr = Stderr
-			filer.grpc.Cmd.Stdout = Stdout
-			filer.grpc.Cmd.Start()
-		*/
-		// Use io.copy
-		go gocat_tcp2unix(filer.http.Port, filer.http.Sock)
-		go gocat_tcp2unix(filer.grpc.Port, filer.grpc.Sock)
-
-		setFiler(alias, filer)
-	}
-	return Filers.list[alias], nil
-}
-func setFiler(alias string, filer *Filer) {
-	Filers.Lock()
-	defer Filers.Unlock()
-	Filers.list[alias] = filer
-}
-
 func gocat_tcp2unix(port int, socketPath string) {
 	for {
 		l, err := net.Listen("tcp", "localhost:"+strconv.Itoa(port))
@@ -117,22 +203,22 @@ func gocat_tcp2unix(port int, socketPath string) {
 			return
 		}
 		for {
-			uconn, err := l.Accept()
+			tconn, err := l.Accept()
 			if err != nil {
 				logerr(err.Error())
 				continue
 			}
-			go gocat_forward2unix(uconn, socketPath)
+			go gocat_forward2unix(tconn, socketPath)
 		}
 	}
 }
-func gocat_forward2unix(uconn net.Conn, socketPath string) {
-	defer uconn.Close()
-	tconn, err := net.Dial("unix", socketPath)
+func gocat_forward2unix(tconn net.Conn, socketPath string) {
+	defer tconn.Close()
+	uconn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		logerr(err.Error())
 		return
 	}
-	go io.Copy(uconn, tconn)
-	io.Copy(tconn, uconn)
+	go io.Copy(tconn, uconn)
+	io.Copy(uconn, tconn)
 }
