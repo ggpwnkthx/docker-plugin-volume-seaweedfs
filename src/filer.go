@@ -78,13 +78,11 @@ func (f *Filer) load(alias string, driver *Driver) error {
 	if !isFiler(alias) {
 		return errors.New("filer does not exist")
 	}
-	if _, found := driver.Filers[alias]; !found {
-		f.alias = alias
-		f.Driver = driver
-		err := f.init()
-		if err != nil {
-			return err
-		}
+	f.alias = alias
+	f.Driver = driver
+	err := f.init()
+	if err != nil {
+		return err
 	}
 
 	path := filepath.Join("/mnt", f.alias, "volumes.json")

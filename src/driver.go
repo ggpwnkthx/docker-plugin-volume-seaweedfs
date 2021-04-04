@@ -22,9 +22,11 @@ func (d *Driver) load() error {
 	}
 	for _, alias := range filers {
 		filer := new(Filer)
-		err := filer.load(alias, d)
-		if err != nil {
-			return err
+		if _, found := d.Filers[alias]; !found {
+			err := filer.load(alias, d)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
