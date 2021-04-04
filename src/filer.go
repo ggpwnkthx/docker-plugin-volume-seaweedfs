@@ -48,6 +48,9 @@ func (f *Filer) listVolumes() (*[]volume.CreateRequest, error) {
 	if err != nil {
 		return &volumes, err
 	}
+	if data == nil {
+		return &volumes, nil
+	}
 	json.Unmarshal(data, &volumes)
 	return &volumes, nil
 }
@@ -62,11 +65,11 @@ func (f *Filer) saveVolumes(v []volume.CreateRequest) error {
 func (f *Filer) getFile(path string) ([]byte, error) {
 	response, err := f.client.Get("http://localhost/" + path)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	return data, nil
 }
@@ -124,7 +127,7 @@ func isFiler(alias string) bool {
 }
 func getFiler(alias string) (*Filer, error) {
 	if !isFiler(alias) {
-		logerr("alias " + alias + " doesn't exists")
+		logerr("alias " + alias + " doesn't exists, creating it")
 		createFiler(alias)
 	}
 	return Filers.list[alias], nil
