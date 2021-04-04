@@ -87,17 +87,13 @@ func (f *Filer) load(alias string, driver *Driver) error {
 
 	path := filepath.Join("/mnt", f.alias, "volumes.json")
 	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	if data == nil {
-		return nil
-	}
-	volumes := []Volume{}
-	json.Unmarshal(data, &volumes)
-	for _, v := range volumes {
-		v.Options["filer"] = f.alias
-		driver.Volumes[v.Name] = &v
+	if err == nil {
+		volumes := []Volume{}
+		json.Unmarshal(data, &volumes)
+		for _, v := range volumes {
+			v.Options["filer"] = f.alias
+			driver.Volumes[v.Name] = &v
+		}
 	}
 
 	driver.Filers[alias] = f
