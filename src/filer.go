@@ -50,12 +50,16 @@ func (f *Filer) listVolumes() (*[]volume.CreateRequest, error) {
 	return &volumes, nil
 }
 func (f *Filer) saveVolumes(v []volume.CreateRequest) error {
+	logerr("saving volumes on " + f.alias)
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 	path := filepath.Join("/mnt", f.alias, "volumes.json")
-	ioutil.WriteFile(path, data, 0644)
+	err = ioutil.WriteFile(path, data, 0644)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
