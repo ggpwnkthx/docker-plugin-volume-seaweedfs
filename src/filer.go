@@ -104,12 +104,16 @@ func (f *Filer) setFile(path string, data []byte) error {
 		return err
 	}
 
-	_, err = f.client.Post(path, mw.FormDataContentType(), reader)
+	response, err := f.client.Post(path, mw.FormDataContentType(), reader)
 	if err != nil {
 		return err
 	}
-
-	return nil
+	defer response.Body.Close()
+	content, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	return errors.New(string(content))
 }
 
 func isFiler(alias string) bool {
