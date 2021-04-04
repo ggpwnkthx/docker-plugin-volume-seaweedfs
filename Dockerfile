@@ -8,7 +8,7 @@ RUN go mod download
 RUN go build -o /bin/docker-plugin-volume
 
 FROM alpine:3
-RUN apk add --no-cache socat fuse
+RUN apk add --no-cache fuse
 RUN mkdir -p /var/run/docker/plugins/seaweedfs
 COPY --from=chrislusf/seaweedfs /usr/bin/weed /usr/bin/
 COPY --from=builder /bin/docker-plugin-volume /bin/docker-plugin-volume
