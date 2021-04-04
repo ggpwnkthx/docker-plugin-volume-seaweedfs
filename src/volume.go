@@ -12,20 +12,33 @@ import (
 )
 
 type Volume struct {
+	Driver           *Driver
+	Filer            *Filer
 	Mountpoint, Name string
 	Options          map[string]string
 	weed             *exec.Cmd
 }
 
-func (v *Volume) Create(r *volume.CreateRequest) error {
+func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
+	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
+
+	if driver.Volumes[r.Name] != nil {
+		return errors.New("volume already exists")
+	}
 	_, ok := r.Options["filer"]
 	if !ok {
 		return errors.New("no filer address:port specified")
 	}
+
 	v.Name = r.Name
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
-	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
+	v.Driver = driver
+	v.Filer = driver.Filers[v.Options["filer"]]
+
+	v.Driver.Volumes[v.Name] = v
+	//v.Filer.Volumes[v.Name] = r
+	v.Filer.saveRunning()
 	return nil
 }
 
@@ -41,25 +54,22 @@ func (v *Volume) Remove() error {
 			return err
 		}
 	}
-	v.Mountpoint = ""
+	delete(v.Driver.Volumes, v.Name)
+	//delete(v.Filer.Volumes, v.Name)
+	v.Filer.saveRunning()
 	return nil
 }
 
 func (v *Volume) Mount() error {
 	logerr("mounting " + v.Name)
 	if v.weed == nil {
-		f, err := getFiler(v.Options["filer"])
-		if err != nil {
-			return errors.New("filer not found")
-		}
-
 		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
 		mOptions := []string{
 			"mount",
-			"-allowOthers",
+			//"-allowOthers",
 			"-dir=" + v.Mountpoint,
-			"-dirAutoCreate",
-			"-filer=localhost:" + strconv.Itoa(f.http.Port),
+			//"-dirAutoCreate",
+			"-filer=localhost:" + strconv.Itoa(v.Filer.http.Port),
 			"-volumeServerAccess=filerProxy",
 		}
 		for oKey, oValue := range v.Options {

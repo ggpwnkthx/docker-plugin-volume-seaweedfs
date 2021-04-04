@@ -15,6 +15,7 @@ const seaweedfsSockets = "/var/lib/docker/plugins/seaweedfs"
 
 var Stdout = os.NewFile(uintptr(syscall.Stdout), "/run/docker/plugins/init-stdout")
 var Stderr = os.NewFile(uintptr(syscall.Stderr), "/run/docker/plugins/init-stderr")
+var SeaweedFS = new(Driver)
 
 func logerr(message ...string) {
 	cmd := exec.Command("echo", message...)
@@ -23,12 +24,11 @@ func logerr(message ...string) {
 }
 
 func main() {
-	d := new(Driver)
-	err := d.load()
+	err := SeaweedFS.load()
 	if err != nil {
 		logrus.Error(err)
 	} else {
-		h := volume.NewHandler(d)
+		h := volume.NewHandler(SeaweedFS)
 		logrus.Infof("listening on %s", dockerSocket)
 		logrus.Error(h.ServeUnix(dockerSocket, 0))
 	}
@@ -53,7 +53,7 @@ func (d *Driver) Create(r *volume.CreateRequest) error {
 
 // Get info about volume_name.
 func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
+	if v, found := d.Volumes[r.Name]; found {
 		return &volume.GetResponse{Volume: &volume.Volume{
 			Name:       v.Name,
 			Mountpoint: v.Mountpoint,
@@ -76,7 +76,7 @@ func (d *Driver) List() (*volume.ListResponse, error) {
 // Docker requires the plugin to provide a volume, given a user specified volume name.
 // ID is a unique ID for the caller that is requesting the mount.
 func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
+	if v, found := d.Volumes[r.Name]; found {
 		v.Mount()
 		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
@@ -86,7 +86,7 @@ func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 // Path requests the path to the volume with the given volume_name.
 func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
-	if v, found := d.volumes[r.Name]; found {
+	if v, found := d.Volumes[r.Name]; found {
 		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 	} else {
 		return &volume.PathResponse{}, errors.New("volume " + r.Name + " not found")
@@ -97,7 +97,7 @@ func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 // Remove the specified volume from disk. This request is issued when a
 // user invokes docker rm -v to remove volumes associated with a container.
 func (d *Driver) Remove(r *volume.RemoveRequest) error {
-	if v, found := d.volumes[r.Name]; found {
+	if v, found := d.Volumes[r.Name]; found {
 		err := d.removeVolume(v)
 		if err != nil {
 			return err
@@ -113,7 +113,7 @@ func (d *Driver) Remove(r *volume.RemoveRequest) error {
 // Plugin may deduce that it is safe to deprovision the volume at this point.
 // ID is a unique ID for the caller that is requesting the mount.
 func (d *Driver) Unmount(r *volume.UnmountRequest) error {
-	if v, found := d.volumes[r.Name]; found {
+	if v, found := d.Volumes[r.Name]; found {
 		return v.Unmount()
 	} else {
 		return errors.New("volume " + r.Name + " not found")
