@@ -65,10 +65,7 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	if cmd == nil {
 		cmd = exec.Command("/usr/bin/weed", options...)
 	}
-	cmd.Stderr = Stderr
-	cmd.Stdout = Stdout
 	stderr, _ := cmd.StderrPipe()
-	//stdout, _ := cmd.StdoutPipe()
 	cmd.Start()
 
 	wg := sync.WaitGroup{}
