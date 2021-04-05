@@ -73,22 +73,19 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go WaitForStdLine("mounted localhost", stderr, &wg)
+	go WaitForStdLine("mounted localhost", &stderr, &wg)
 	wg.Wait()
 }
 
-func WaitForStdLine(needle string, haystack io.ReadCloser, wg *sync.WaitGroup) {
+func WaitForStdLine(needle string, haystack *io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
-	scanner := bufio.NewScanner(haystack)
-out:
-	for {
-		for scanner.Scan() {
-			line := scanner.Text()
-			if len(line) > 0 {
-				logerr("scanning: " + line)
-				if strings.Contains(line, needle) {
-					break out
-				}
+	scanner := bufio.NewScanner(*haystack)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > 0 {
+			logerr("scanning: " + line)
+			if strings.Contains(line, needle) {
+				break
 			}
 		}
 	}
