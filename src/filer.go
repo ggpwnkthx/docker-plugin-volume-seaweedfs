@@ -93,10 +93,8 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		names := []string{}
 		json.Unmarshal(data, &requests)
 		for _, r := range requests {
-			if _, found := f.Driver.Volumes[r.Name]; !found {
-				v := new(Volume)
-				v.Create(&r, f.Driver)
-			}
+			v := new(Volume)
+			v.Create(&r, f.Driver)
 			names = append(names, r.Name)
 		}
 		for name := range driver.Volumes {
