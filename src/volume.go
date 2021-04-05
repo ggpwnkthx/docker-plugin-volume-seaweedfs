@@ -28,6 +28,7 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 		return errors.New("no filer address:port specified")
 	}
 	v.Name = r.Name
+	v.Options = map[string]string{}
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
 	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
