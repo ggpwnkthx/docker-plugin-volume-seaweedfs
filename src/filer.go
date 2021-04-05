@@ -105,9 +105,10 @@ func (f *Filer) load(alias string, driver *Driver) error {
 			}
 			names = append(names, r.Name)
 		}
-		for name := range driver.Volumes {
+		for name, volume := range driver.Volumes {
 			if !Contains(names, name) {
-				if driver.Volumes[name].Filer.alias == f.alias {
+				logerr("found unused mount " + name)
+				if volume.Filer.alias == f.alias {
 					logerr("removing mount " + name)
 					delete(driver.Volumes, name)
 				}
