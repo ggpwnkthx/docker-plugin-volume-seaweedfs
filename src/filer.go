@@ -67,10 +67,7 @@ func (f *Filer) init() error {
 		"-filer=localhost:" + strconv.Itoa(f.http.Port),
 		"-volumeServerAccess=filerProxy",
 	}
-	f.weed = exec.Command("/usr/bin/weed", mOptions...)
-	f.weed.Stderr = Stderr
-	f.weed.Stdout = Stdout
-	f.weed.Start()
+	SeaweedFSMount(f.weed, mOptions)
 
 	return nil
 }

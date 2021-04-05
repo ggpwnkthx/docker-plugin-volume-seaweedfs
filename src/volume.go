@@ -82,10 +82,7 @@ func (v *Volume) Mount() error {
 			}
 		}
 		os.MkdirAll(v.Mountpoint, os.ModePerm)
-		v.weed = exec.Command("/usr/bin/weed", mOptions...)
-		v.weed.Stderr = Stderr
-		v.weed.Stdout = Stdout
-		v.weed.Start()
+		SeaweedFSMount(v.weed, mOptions)
 	}
 	return nil
 }

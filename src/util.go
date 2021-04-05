@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os/exec"
 	"strconv"
 
 	"github.com/phayes/freeport"
@@ -55,4 +56,13 @@ func Contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func SeaweedFSMount(cmd *exec.Cmd, options []string) {
+	if cmd == nil {
+		cmd = exec.Command("/usr/bin/weed", options...)
+	}
+	cmd.Stderr = Stderr
+	cmd.Stdout = Stdout
+	cmd.Start()
 }
