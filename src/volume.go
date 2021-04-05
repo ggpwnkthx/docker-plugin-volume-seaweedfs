@@ -101,6 +101,8 @@ func (v *Volume) Unmount() error {
 func (v *Volume) getStatus() map[string]interface{} {
 	logerr("getting status of mount " + v.Name)
 	status := make(map[string]interface{})
+	status["filer"] = v.Filer
+	status["options"] = v.Options
 	status["weed"] = v.weed
 	return status
 }
