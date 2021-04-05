@@ -94,7 +94,6 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		names := []string{}
 		json.Unmarshal(data, &requests)
 		for _, r := range requests {
-			logerr("creating mount " + r.Name)
 			if r.Options == nil {
 				r.Options = map[string]string{}
 			}

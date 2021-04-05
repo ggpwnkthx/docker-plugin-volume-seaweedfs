@@ -62,6 +62,7 @@ func Contains(haystack []string, needle string) bool {
 }
 
 func SeaweedFSMount(cmd *exec.Cmd, options []string) {
+	logerr(options...)
 	if cmd == nil {
 		cmd = exec.Command("/usr/bin/weed", options...)
 	}
