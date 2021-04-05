@@ -31,7 +31,7 @@ func (f *Filer) init() error {
 	if err != nil {
 		return err
 	}
-	logerr("using port " + strconv.Itoa(port))
+	logerr("initializing filer using port " + strconv.Itoa(port))
 
 	f.http = struct {
 		Port int

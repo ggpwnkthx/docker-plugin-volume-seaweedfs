@@ -27,7 +27,6 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 	if !ok {
 		return errors.New("no filer address:port specified")
 	}
-
 	v.Name = r.Name
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
@@ -60,6 +59,7 @@ func (v *Volume) Remove() error {
 			return err
 		}
 	}
+	logerr("removing mount " + v.Name)
 	delete(v.Driver.Volumes, v.Name)
 	//delete(v.Filer.Volumes, v.Name)
 	v.Filer.saveRunning()
@@ -94,10 +94,12 @@ func (v *Volume) Mount() error {
 }
 
 func (v *Volume) Unmount() error {
+	logerr("unmounting mount " + v.Name)
 	return nil
 }
 
 func (v *Volume) getStatus() map[string]interface{} {
+	logerr("getting status of mount " + v.Name)
 	status := make(map[string]interface{})
 	status["weed"] = v.weed
 	return status
