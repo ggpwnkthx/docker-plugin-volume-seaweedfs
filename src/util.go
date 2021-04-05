@@ -79,8 +79,8 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 
 func WaitForStdLine(needle string, haystack io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
+	reader := bufio.NewReader(haystack)
 	for {
-		reader := bufio.NewReader(haystack)
 		data, _, _ := reader.ReadLine()
 		line := string(data)
 		if len(line) > 0 {
