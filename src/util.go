@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -68,18 +67,22 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	}
 	cmd.Stderr = Stderr
 	cmd.Stdout = Stdout
+	stderr, _ := cmd.StderrPipe()
+	//stdout, _ := cmd.StdoutPipe()
 	cmd.Start()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go WaitForStdLine("mounted localhost", Stderr, &wg)
+	go WaitForStdLine("mounted localhost", stderr, &wg)
 	wg.Wait()
 }
 
-func WaitForStdLine(needle string, haystack *os.File, wg *sync.WaitGroup) {
+func WaitForStdLine(needle string, haystack io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		line, _ := bufio.NewReader(haystack).ReadString('\n')
+		reader := bufio.NewReader(haystack)
+		data, _, _ := reader.ReadLine()
+		line := string(data)
 		if len(line) > 0 {
 			logerr("scanning: " + line)
 			if strings.Contains(line, needle) {
