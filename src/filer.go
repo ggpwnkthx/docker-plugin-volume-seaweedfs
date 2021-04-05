@@ -95,7 +95,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		for _, r := range requests {
 			v := new(Volume)
 			v.Create(&r, driver)
-			logerr("creating mount " + v.Name)
+			logerr("creating mount " + r.Name)
 			names = append(names, r.Name)
 		}
 		for name := range driver.Volumes {
