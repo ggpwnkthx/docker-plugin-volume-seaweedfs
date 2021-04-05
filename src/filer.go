@@ -94,12 +94,14 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		json.Unmarshal(data, &requests)
 		for _, r := range requests {
 			v := new(Volume)
-			v.Create(&r, f.Driver)
+			v.Create(&r, driver)
+			logerr("creating mount " + v.Name)
 			names = append(names, r.Name)
 		}
 		for name := range driver.Volumes {
 			if !Contains(names, name) {
 				if driver.Volumes[name].Filer.alias == f.alias {
+					logerr("removing mount " + name)
 					delete(driver.Volumes, name)
 				}
 			}
