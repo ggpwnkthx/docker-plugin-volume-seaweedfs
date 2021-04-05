@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/phayes/freeport"
 )
@@ -65,4 +69,19 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	cmd.Stderr = Stderr
 	cmd.Stdout = Stdout
 	cmd.Start()
+
+	wg := sync.WaitGroup{}
+	go WaitForStdLine("", Stderr, &wg)
+	wg.Wait()
+}
+
+func WaitForStdLine(needle string, haystack *os.File, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+	for {
+		line, _ := bufio.NewReader(haystack).ReadString('\n')
+		if strings.Contains(line, needle) {
+			break
+		}
+	}
 }

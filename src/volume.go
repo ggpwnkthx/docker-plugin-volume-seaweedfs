@@ -34,6 +34,13 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
 	v.Driver = driver
+	if _, found := driver.Filers[v.Options["filer"]]; !found {
+		f := new(Filer)
+		err := f.load(v.Options["filer"], v.Driver)
+		if err != nil {
+			return err
+		}
+	}
 	v.Filer = driver.Filers[v.Options["filer"]]
 
 	v.Driver.Volumes[v.Name] = v
