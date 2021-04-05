@@ -94,6 +94,9 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		volume_names := []string{}
 		json.Unmarshal(data, &volumes)
 		for _, v := range volumes {
+			if v.Options == nil {
+				v.Options = map[string]string{}
+			}
 			v.Options["filer"] = f.alias
 			driver.Volumes[v.Name] = &v
 			volume_names = append(volume_names, v.Name)
