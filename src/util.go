@@ -65,7 +65,7 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	if cmd == nil {
 		cmd = exec.Command("/usr/bin/weed", options...)
 	}
-	//cmd.Stderr = Stderr
+	cmd.Stderr = Stderr
 	cmd.Stdout = Stdout
 	stderr, _ := cmd.StderrPipe()
 	//stdout, _ := cmd.StdoutPipe()
@@ -78,7 +78,6 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
-			logerr("scanning: " + line)
 			if strings.Contains(line, "mounted localhost") {
 				break
 			}
