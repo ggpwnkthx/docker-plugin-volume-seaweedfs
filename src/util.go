@@ -80,12 +80,15 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 func WaitForStdLine(needle string, haystack io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 	scanner := bufio.NewScanner(haystack)
+out:
 	for {
-		line := scanner.Text()
-		if len(line) > 0 {
-			logerr("scanning: " + line)
-			if strings.Contains(line, needle) {
-				break
+		for scanner.Scan() {
+			line := scanner.Text()
+			if len(line) > 0 {
+				logerr("scanning: " + line)
+				if strings.Contains(line, needle) {
+					break out
+				}
 			}
 		}
 	}
