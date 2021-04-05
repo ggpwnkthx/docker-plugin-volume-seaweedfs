@@ -76,7 +76,9 @@ func (f *Filer) init() error {
 }
 func (f *Filer) load(alias string, driver *Driver) error {
 	if !isFiler(alias) {
-		return errors.New("filer does not exist")
+		return errors.New("filer " + alias + " does not exist")
+	} else {
+		logerr("loading filer " + alias)
 	}
 	f.alias = alias
 	f.Driver = driver
@@ -98,6 +100,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 				v.Options = map[string]string{}
 			}
 			v.Options["filer"] = f.alias
+			logerr("loading volume " + v.Name)
 			driver.Volumes[v.Name] = &v
 			volume_names = append(volume_names, v.Name)
 		}
