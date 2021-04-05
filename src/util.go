@@ -71,12 +71,12 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	cmd.Start()
 
 	wg := sync.WaitGroup{}
-	go WaitForStdLine("", Stderr, &wg)
+	wg.Add(1)
+	go WaitForStdLine("mounted localhost", Stderr, &wg)
 	wg.Wait()
 }
 
 func WaitForStdLine(needle string, haystack *os.File, wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		line, _ := bufio.NewReader(haystack).ReadString('\n')
