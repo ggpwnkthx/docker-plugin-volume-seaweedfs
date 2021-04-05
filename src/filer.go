@@ -68,6 +68,7 @@ func (f *Filer) init() error {
 		"-volumeServerAccess=filerProxy",
 	}
 	SeaweedFSMount(f.weed, mOptions)
+	f.Driver.Filers[f.alias] = f
 
 	return nil
 }
@@ -114,8 +115,6 @@ func (f *Filer) load(alias string, driver *Driver) error {
 			}
 		}
 	}
-
-	driver.Filers[alias] = f
 	return nil
 }
 func (f *Filer) saveRunning() error {
