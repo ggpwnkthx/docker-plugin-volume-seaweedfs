@@ -80,9 +80,11 @@ func WaitForStdLine(needle string, haystack *os.File, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		line, _ := bufio.NewReader(haystack).ReadString('\n')
-		logerr("scanning: " + line)
-		if strings.Contains(line, needle) {
-			break
+		if len(line) > 0 {
+			logerr("scanning: " + line)
+			if strings.Contains(line, needle) {
+				break
+			}
 		}
 	}
 }
