@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/phayes/freeport"
@@ -73,12 +74,15 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
 			logerr("scanning: " + line)
+			if strings.Contains(line, "mounted localhost") {
+				break
+			}
 		}
-		wg.Done()
 	}()
 	wg.Wait()
 }
