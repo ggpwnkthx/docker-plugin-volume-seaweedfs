@@ -20,8 +20,6 @@ type Volume struct {
 }
 
 func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
-	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
-
 	if driver.Volumes[r.Name] != nil {
 		return errors.New("volume already exists")
 	}
@@ -33,6 +31,7 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 	v.Name = r.Name
 	v.Options = r.Options
 	v.Options["filer"] = strings.Split(r.Options["filer"], ":")[0]
+	logerr("creating mount " + v.Name + " from filer " + v.Options["filer"])
 	v.Driver = driver
 	if _, found := driver.Filers[v.Options["filer"]]; !found {
 		f := new(Filer)
