@@ -12,25 +12,30 @@ type Driver struct {
 	Volumes map[string]*Volume
 }
 
-func (d *Driver) load() error {
+func (d *Driver) init() error {
 	if d.Filers == nil {
 		d.Filers = map[string]*Filer{}
 	}
 	if d.Volumes == nil {
 		d.Volumes = map[string]*Volume{}
 	}
-
+	return d.load()
+}
+func (d *Driver) load() error {
 	filers, err := availableFilers()
 	if err != nil {
 		return err
 	}
 	for _, alias := range filers {
-		if _, found := d.Filers[alias]; !found {
-			filer := new(Filer)
-			err := filer.load(alias, d)
-			if err != nil {
-				return err
-			}
+		filer := new(Filer)
+		err := filer.load(alias, d)
+		if err != nil {
+			return err
+		}
+	}
+	for alias := range d.Filers {
+		if !Contains(filers, alias) {
+			delete(d.Filers, alias)
 		}
 	}
 	return nil

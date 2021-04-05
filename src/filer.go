@@ -80,19 +80,30 @@ func (f *Filer) load(alias string, driver *Driver) error {
 	}
 	f.alias = alias
 	f.Driver = driver
-	err := f.init()
-	if err != nil {
-		return err
+	if _, found := driver.Filers[alias]; !found {
+		err := f.init()
+		if err != nil {
+			return err
+		}
 	}
 
 	path := filepath.Join("/mnt", f.alias, "volumes.json")
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
 		volumes := []Volume{}
+		volume_names := []string{}
 		json.Unmarshal(data, &volumes)
 		for _, v := range volumes {
 			v.Options["filer"] = f.alias
 			driver.Volumes[v.Name] = &v
+			volume_names = append(volume_names, v.Name)
+		}
+		for name := range driver.Volumes {
+			if !Contains(volume_names, name) {
+				if driver.Volumes[name].Filer.alias == f.alias {
+					delete(driver.Volumes, name)
+				}
+			}
 		}
 	}
 

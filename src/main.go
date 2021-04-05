@@ -24,7 +24,7 @@ func logerr(message ...string) {
 }
 
 func main() {
-	err := SeaweedFS.load()
+	err := SeaweedFS.init()
 	if err != nil {
 		logrus.Error(err)
 	} else {

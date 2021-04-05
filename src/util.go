@@ -47,3 +47,12 @@ func gocat_forward2unix(tconn net.Conn, socketPath string) {
 	go io.Copy(tconn, uconn)
 	io.Copy(uconn, tconn)
 }
+
+func Contains(haystack []string, needle string) bool {
+	for _, test := range haystack {
+		if test == needle {
+			return true
+		}
+	}
+	return false
+}
