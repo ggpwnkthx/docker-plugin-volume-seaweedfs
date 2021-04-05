@@ -13,16 +13,20 @@ type Driver struct {
 }
 
 func (d *Driver) load() error {
-	d.Filers = map[string]*Filer{}
-	d.Volumes = map[string]*Volume{}
+	if d.Filers == nil {
+		d.Filers = map[string]*Filer{}
+	}
+	if d.Volumes == nil {
+		d.Volumes = map[string]*Volume{}
+	}
 
 	filers, err := availableFilers()
 	if err != nil {
 		return err
 	}
 	for _, alias := range filers {
-		filer := new(Filer)
 		if _, found := d.Filers[alias]; !found {
+			filer := new(Filer)
 			err := filer.load(alias, d)
 			if err != nil {
 				return err
