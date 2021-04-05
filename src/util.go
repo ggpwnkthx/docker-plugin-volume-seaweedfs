@@ -7,7 +7,6 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/phayes/freeport"
@@ -65,7 +64,7 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 	if cmd == nil {
 		cmd = exec.Command("/usr/bin/weed", options...)
 	}
-	cmd.Stderr = Stderr
+	//cmd.Stderr = Stderr
 	cmd.Stdout = Stdout
 	stderr, _ := cmd.StderrPipe()
 	//stdout, _ := cmd.StdoutPipe()
@@ -73,20 +72,13 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go WaitForStdLine("mounted localhost", &stderr, &wg)
-	wg.Wait()
-}
-
-func WaitForStdLine(needle string, haystack *io.ReadCloser, wg *sync.WaitGroup) {
-	defer wg.Done()
-	scanner := bufio.NewScanner(*haystack)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(line) > 0 {
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
 			logerr("scanning: " + line)
-			if strings.Contains(line, needle) {
-				break
-			}
 		}
-	}
+		wg.Done()
+	}()
+	wg.Wait()
 }
