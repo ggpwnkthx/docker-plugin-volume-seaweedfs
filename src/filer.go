@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -19,13 +20,13 @@ type Filer struct {
 	Driver *Driver
 	relays map[string]*Relay
 	weed   *exec.Cmd
+	wg     *sync.WaitGroup
 }
 type Relay struct {
-	port     int
-	socket   string
-	listener *net.Listener
-	c1       *net.Conn
-	c2       *net.Conn
+	port   int
+	socket string
+	c1     *net.Conn
+	c2     *net.Conn
 }
 
 func (f *Filer) init() error {
@@ -50,19 +51,9 @@ func (f *Filer) init() error {
 	if _, err := os.Stat(f.relays["grpc"].socket); os.IsNotExist(err) {
 		return errors.New("grpc unix socket not found")
 	}
-	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(f.relays["http"].port))
-	if err != nil {
-		logerr(err.Error())
-	}
-	f.relays["http"].listener = &listener
-	listener, err = net.Listen("tcp", "localhost:"+strconv.Itoa(f.relays["grpc"].port))
-	if err != nil {
-		logerr(err.Error())
-	}
-	f.relays["grpc"].listener = &listener
 
-	go f.proxet("http")
-	go f.proxet("grpc")
+	go f.proxet(f.relays["http"])
+	go f.proxet(f.relays["grpc"])
 
 	mountpoint := filepath.Join("/mnt", f.alias)
 	os.MkdirAll(mountpoint, os.ModePerm)
@@ -73,8 +64,10 @@ func (f *Filer) init() error {
 		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
 		"-volumeServerAccess=filerProxy",
 	}
+	f.wg.Wait()
 	SeaweedFSMount(f.weed, mOptions)
 	f.Driver.Filers[f.alias] = f
+	logerr("filer " + f.alias + " initialized")
 
 	return nil
 }
@@ -184,29 +177,30 @@ func availableFilers() ([]string, error) {
 	return filers, nil
 }
 
-func (f *Filer) proxet(handle string) {
+func (f *Filer) proxet(relay *Relay) {
+	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(relay.port))
+	if err != nil {
+		logerr(err.Error())
+	}
 	for {
-		if f.relays[handle] == nil {
-			break
-		}
-		c1, err := (*f.relays[handle].listener).Accept()
-		f.relays[handle].c1 = &c1
+		c1, err := listener.Accept()
+		relay.c1 = &c1
 		if err != nil {
 			logerr(err.Error())
 			continue
 		}
-		go f.proxetHandler(handle)
+		go f.proxetHandler(relay)
 	}
 }
-func (f *Filer) proxetHandler(handle string) {
-	c2, err := net.Dial("unix", f.relays[handle].socket)
+func (f *Filer) proxetHandler(relay *Relay) {
+	c2, err := net.Dial("unix", relay.socket)
 	if err != nil {
 		logerr(err.Error())
 		return
 	}
-	f.relays[handle].c2 = &c2
-	go proxetCopy(f.relays[handle].c1, f.relays[handle].c2) // c1 -> c2
-	proxetCopy(f.relays[handle].c2, f.relays[handle].c1)    // c2 -> c1
+	relay.c2 = &c2
+	go proxetCopy(relay.c1, relay.c2) // c1 -> c2
+	proxetCopy(relay.c2, relay.c1)    // c2 -> c1
 }
 func proxetCopy(writer *net.Conn, reader *net.Conn) {
 	_, err := io.Copy(*writer, *reader)
