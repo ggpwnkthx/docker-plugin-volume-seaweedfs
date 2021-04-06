@@ -58,6 +58,7 @@ func (f *Filer) init() error {
 
 	mOptions := []string{
 		"mount",
+		"-allowOthers",
 		"-dir=" + mountpoint,
 		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
 		"-volumeServerAccess=filerProxy",

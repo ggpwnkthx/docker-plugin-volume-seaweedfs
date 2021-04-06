@@ -73,9 +73,9 @@ func (v *Volume) Mount() error {
 		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
 		mOptions := []string{
 			"mount",
-			//"-allowOthers",
+			"-allowOthers",
 			"-dir=" + v.Mountpoint,
-			//"-dirAutoCreate",
+			"-dirAutoCreate",
 			"-filer=localhost:" + strconv.Itoa(v.Filer.relays["http"].port),
 			"-volumeServerAccess=filerProxy",
 		}
