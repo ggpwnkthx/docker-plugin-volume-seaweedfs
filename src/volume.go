@@ -76,7 +76,7 @@ func (v *Volume) Mount() error {
 			//"-allowOthers",
 			"-dir=" + v.Mountpoint,
 			//"-dirAutoCreate",
-			"-filer=localhost:" + strconv.Itoa(v.Filer.http.Port),
+			"-filer=localhost:" + strconv.Itoa(v.Filer.relays["http"].port),
 			"-volumeServerAccess=filerProxy",
 		}
 		for oKey, oValue := range v.Options {
