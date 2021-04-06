@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -20,7 +19,6 @@ type Filer struct {
 	Driver *Driver
 	relays map[string]*Relay
 	weed   *exec.Cmd
-	wg     *sync.WaitGroup
 }
 type Relay struct {
 	port   int
@@ -64,7 +62,6 @@ func (f *Filer) init() error {
 		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
 		"-volumeServerAccess=filerProxy",
 	}
-	f.wg.Wait()
 	SeaweedFSMount(f.weed, mOptions)
 	f.Driver.Filers[f.alias] = f
 	logerr("filer " + f.alias + " initialized")
