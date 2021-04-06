@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
-	"sync"
 
 	"github.com/phayes/freeport"
 )
@@ -42,19 +41,13 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 		return
 	}
 	logerr("mount started, waiting for stable connection")
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			logerr(line)
-			if strings.Contains(line, "mounted localhost") {
-				break
-			}
+	scanner := bufio.NewScanner(stderr)
+	for scanner.Scan() {
+		line := scanner.Text()
+		logerr(line)
+		if strings.Contains(line, "mounted localhost") {
+			break
 		}
-		logerr("stablility reached")
-	}()
-	wg.Wait()
+	}
+	logerr("stablility reached")
 }
