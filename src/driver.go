@@ -59,6 +59,7 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	if err != nil {
 		return err
 	}
+	v.Filer.saveRunning()
 	return nil
 }
 func (d *Driver) listVolumes() []*volume.Volume {

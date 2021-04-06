@@ -43,8 +43,6 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 	v.Filer = driver.Filers[v.Options["filer"]]
 
 	v.Driver.Volumes[v.Name] = v
-	//v.Filer.Volumes[v.Name] = r
-	v.Filer.saveRunning()
 	return nil
 }
 
