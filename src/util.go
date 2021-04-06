@@ -36,8 +36,12 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 		cmd = exec.Command("/usr/bin/weed", options...)
 	}
 	stderr, _ := cmd.StderrPipe()
-	cmd.Start()
-
+	err := cmd.Start()
+	if err != nil {
+		logerr(err.Error())
+		return
+	}
+	logerr("mount started, waiting for stable connection")
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -45,10 +49,12 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
+			logerr(line)
 			if strings.Contains(line, "mounted localhost") {
 				break
 			}
 		}
+		logerr("stablility reached")
 	}()
 	wg.Wait()
 }
