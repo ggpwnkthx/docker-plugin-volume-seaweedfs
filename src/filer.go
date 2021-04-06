@@ -36,13 +36,17 @@ func (f *Filer) init() error {
 	logerr("initializing filer using port " + strconv.Itoa(port))
 
 	f.relays = map[string]*Relay{}
-	f.relays["http"].port = port
-	f.relays["http"].socket = filepath.Join(seaweedfsSockets, f.alias, "http.sock")
+	f.relays["http"] = &Relay{
+		port:   port,
+		socket: filepath.Join(seaweedfsSockets, f.alias, "http.sock"),
+	}
 	if _, err := os.Stat(f.relays["http"].socket); os.IsNotExist(err) {
 		return errors.New("http unix socket not found")
 	}
-	f.relays["grpc"].port = port + 10000
-	f.relays["grpc"].socket = filepath.Join(seaweedfsSockets, f.alias, "grpc.sock")
+	f.relays["grpc"] = &Relay{
+		port:   port + 10000,
+		socket: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
+	}
 	if _, err := os.Stat(f.relays["grpc"].socket); os.IsNotExist(err) {
 		return errors.New("grpc unix socket not found")
 	}
