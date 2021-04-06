@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,15 +17,15 @@ import (
 type Filer struct {
 	alias  string
 	Driver *Driver
-	http   struct {
-		Port int
-		Sock string
-	}
-	grpc struct {
-		Port int
-		Sock string
-	}
-	weed *exec.Cmd
+	relays map[string]*Relay
+	weed   *exec.Cmd
+}
+type Relay struct {
+	port     int
+	socket   string
+	listener *net.Listener
+	c1       *net.Conn
+	c2       *net.Conn
 }
 
 func (f *Filer) init() error {
@@ -33,30 +35,30 @@ func (f *Filer) init() error {
 	}
 	logerr("initializing filer using port " + strconv.Itoa(port))
 
-	f.http = struct {
-		Port int
-		Sock string
-	}{
-		Port: port,
-		Sock: filepath.Join(seaweedfsSockets, f.alias, "http.sock"),
-	}
-	f.grpc = struct {
-		Port int
-		Sock string
-	}{
-		Port: port + 10000,
-		Sock: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
-	}
-
-	if _, err := os.Stat(f.http.Sock); os.IsNotExist(err) {
+	f.relays = map[string]*Relay{}
+	f.relays["http"].port = port
+	f.relays["http"].socket = filepath.Join(seaweedfsSockets, f.alias, "http.sock")
+	if _, err := os.Stat(f.relays["http"].socket); os.IsNotExist(err) {
 		return errors.New("http unix socket not found")
 	}
-	if _, err := os.Stat(f.grpc.Sock); os.IsNotExist(err) {
+	f.relays["grpc"].port = port + 10000
+	f.relays["grpc"].socket = filepath.Join(seaweedfsSockets, f.alias, "grpc.sock")
+	if _, err := os.Stat(f.relays["grpc"].socket); os.IsNotExist(err) {
 		return errors.New("grpc unix socket not found")
 	}
+	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(f.relays["http"].port))
+	if err != nil {
+		logerr(err.Error())
+	}
+	f.relays["http"].listener = &listener
+	listener, err = net.Listen("tcp", "localhost:"+strconv.Itoa(f.relays["grpc"].port))
+	if err != nil {
+		logerr(err.Error())
+	}
+	f.relays["grpc"].listener = &listener
 
-	go gocat_tcp2unix(f.http.Port, f.http.Sock)
-	go gocat_tcp2unix(f.grpc.Port, f.grpc.Sock)
+	go f.proxet("http")
+	go f.proxet("grpc")
 
 	mountpoint := filepath.Join("/mnt", f.alias)
 	os.MkdirAll(mountpoint, os.ModePerm)
@@ -64,7 +66,7 @@ func (f *Filer) init() error {
 	mOptions := []string{
 		"mount",
 		"-dir=" + mountpoint,
-		"-filer=localhost:" + strconv.Itoa(f.http.Port),
+		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
 		"-volumeServerAccess=filerProxy",
 	}
 	SeaweedFSMount(f.weed, mOptions)
@@ -176,4 +178,35 @@ func availableFilers() ([]string, error) {
 		}
 	}
 	return filers, nil
+}
+
+func (f *Filer) proxet(handle string) {
+	for {
+		if f.relays[handle] == nil {
+			break
+		}
+		c1, err := (*f.relays[handle].listener).Accept()
+		f.relays[handle].c1 = &c1
+		if err != nil {
+			logerr(err.Error())
+			continue
+		}
+		go f.proxetHandler(handle)
+	}
+}
+func (f *Filer) proxetHandler(handle string) {
+	c2, err := net.Dial("unix", f.relays[handle].socket)
+	if err != nil {
+		logerr(err.Error())
+		return
+	}
+	f.relays[handle].c2 = &c2
+	go proxetCopy(f.relays[handle].c1, f.relays[handle].c2) // c1 -> c2
+	proxetCopy(f.relays[handle].c2, f.relays[handle].c1)    // c2 -> c1
+}
+func proxetCopy(writer *net.Conn, reader *net.Conn) {
+	_, err := io.Copy(*writer, *reader)
+	if err != nil {
+		logerr(err.Error())
+	}
 }
