@@ -12,11 +12,11 @@ import (
 )
 
 type Volume struct {
-	Driver           *Driver
-	Filer            *Filer
-	Mountpoint, Name string
-	Options          map[string]string
-	weed             *exec.Cmd
+	volume.Volume
+	Driver  *Driver
+	Filer   *Filer
+	Options map[string]string
+	weed    *exec.Cmd
 }
 
 func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {

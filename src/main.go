@@ -53,15 +53,15 @@ func (d *Driver) Create(r *volume.CreateRequest) error {
 
 // Get info about volume_name.
 func (d *Driver) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
-	if v, found := d.Volumes[r.Name]; found {
-		return &volume.GetResponse{Volume: &volume.Volume{
-			Name:       v.Name,
-			Mountpoint: v.Mountpoint,
-			Status:     v.getStatus(),
-		}}, nil
-	} else {
-		return &volume.GetResponse{}, errors.New("volume " + r.Name + " not found")
+	v, err := d.getVolume(r.Name)
+	if err != nil {
+		return &volume.GetResponse{}, err
 	}
+	return &volume.GetResponse{Volume: &volume.Volume{
+		Name:       v.Name,
+		Mountpoint: v.Mountpoint,
+		Status:     v.getStatus(),
+	}}, nil
 }
 
 // List of volumes registered with the plugin.
@@ -76,21 +76,24 @@ func (d *Driver) List() (*volume.ListResponse, error) {
 // Docker requires the plugin to provide a volume, given a user specified volume name.
 // ID is a unique ID for the caller that is requesting the mount.
 func (d *Driver) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
-	if v, found := d.Volumes[r.Name]; found {
-		v.Mount()
-		return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
-	} else {
-		return &volume.MountResponse{}, errors.New("volume " + r.Name + " not found")
+	v, err := d.getVolume(r.Name)
+	if err != nil {
+		return &volume.MountResponse{}, err
 	}
+	err = v.Mount()
+	if err != nil {
+		return &volume.MountResponse{}, err
+	}
+	return &volume.MountResponse{Mountpoint: v.Mountpoint}, nil
 }
 
 // Path requests the path to the volume with the given volume_name.
 func (d *Driver) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
-	if v, found := d.Volumes[r.Name]; found {
-		return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
-	} else {
-		return &volume.PathResponse{}, errors.New("volume " + r.Name + " not found")
+	v, err := d.getVolume(r.Name)
+	if err != nil {
+		return &volume.PathResponse{}, err
 	}
+	return &volume.PathResponse{Mountpoint: v.Mountpoint}, nil
 
 }
 

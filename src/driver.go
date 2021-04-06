@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -61,6 +62,13 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 	}
 	v.Filer.saveRunning()
 	return nil
+}
+func (d *Driver) getVolume(name string) (*Volume, error) {
+	d.load()
+	if v, found := d.Volumes[name]; found {
+		return v, nil
+	}
+	return nil, errors.New("volume " + name + " not found")
 }
 func (d *Driver) listVolumes() []*volume.Volume {
 	d.load()
