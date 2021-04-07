@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -49,12 +48,6 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 }
 
 func (v *Volume) Remove() error {
-	if _, err := os.Stat(v.Mountpoint); !os.IsNotExist(err) {
-		err = os.RemoveAll(v.Mountpoint)
-		if err != nil {
-			return err
-		}
-	}
 	logerr("removing mount " + v.Name)
 	delete(v.Driver.Volumes, v.Name)
 	v.Filer.saveRunning()
