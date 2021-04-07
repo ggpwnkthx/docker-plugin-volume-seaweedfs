@@ -130,7 +130,6 @@ func (d *Driver) watcher() {
 					fi, _ := f.Stat()
 					d.Lock()
 					if fi.IsDir() {
-						logerr("wataching additional dir", fi.Name())
 						d.addDirWatch(event.Name)
 					} else {
 						logerr("found new file", fi.Name())
@@ -162,13 +161,20 @@ func (d *Driver) watcher() {
 func (d *Driver) addDirWatch(dir string) {
 	d.Lock()
 	defer d.Unlock()
-	d.Watcher.Notifier.Add(dir)
+	logerr("wataching additional dir", dir)
+	err := d.Watcher.Notifier.Add(dir)
+	if err != nil {
+		logerr(err.Error())
+	}
 }
 func (d *Driver) removeDirWatch(dir string) {
 	d.Lock()
 	defer d.Unlock()
 	logerr("no longer wataching dir", dir)
-	d.Watcher.Notifier.Remove(dir)
+	err := d.Watcher.Notifier.Remove(dir)
+	if err != nil {
+		logerr(err.Error())
+	}
 	if _, found := d.Watcher.List[dir]; found {
 		delete(d.Watcher.List, dir)
 	}
