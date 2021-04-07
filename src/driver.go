@@ -22,6 +22,12 @@ func (d *Driver) init() error {
 	if d.Volumes == nil {
 		d.Volumes = map[string]*Volume{}
 	}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logerr(err.Error())
+	}
+	d.Watcher = watcher
+	go d.watcher()
 	return d.load()
 }
 func (d *Driver) load() error {
@@ -41,7 +47,6 @@ func (d *Driver) load() error {
 			delete(d.Filers, alias)
 		}
 	}
-	d.watcher()
 	return nil
 }
 
@@ -91,18 +96,14 @@ func (d *Driver) removeVolume(v *Volume) error {
 }
 
 func (d *Driver) watcher() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		logerr(err.Error())
-	}
-	defer watcher.Close()
-	watcher.Add(volume.DefaultDockerRootDirectory)
+	defer d.Watcher.Close()
+	d.Watcher.Add(volume.DefaultDockerRootDirectory)
 	done := make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case event, ok := <-watcher.Events:
+			case event, ok := <-d.Watcher.Events:
 				if !ok {
 					return
 				}
@@ -110,7 +111,7 @@ func (d *Driver) watcher() {
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					logerr("modified file:", event.Name)
 				}
-			case err, ok := <-watcher.Errors:
+			case err, ok := <-d.Watcher.Errors:
 				if !ok {
 					return
 				}
