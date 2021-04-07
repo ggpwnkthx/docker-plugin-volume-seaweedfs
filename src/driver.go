@@ -5,12 +5,14 @@ import (
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/fsnotify/fsnotify"
 )
 
 type Driver struct {
 	sync.RWMutex
 	Filers  map[string]*Filer
 	Volumes map[string]*Volume
+	Watcher fsnotify.Watcher
 }
 
 func (d *Driver) init() error {
@@ -39,6 +41,7 @@ func (d *Driver) load() error {
 			delete(d.Filers, alias)
 		}
 	}
+	d.watcher()
 	return nil
 }
 
@@ -85,4 +88,24 @@ func (d *Driver) listVolumes() []*volume.Volume {
 
 func (d *Driver) removeVolume(v *Volume) error {
 	return v.Remove()
+}
+
+func (d *Driver) watcher() {
+	d.Watcher, _ = fsnotify.NewWatcher()
+	defer d.Watcher.Close()
+	d.Watcher.Add(volume.DefaultDockerRootDirectory)
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case event := <-d.Watcher.Events: // watch for events
+				logerr("EVENT! %#v\n", event)
+			case err := <-d.Watcher.Errors: // watch for errors
+				logerr("ERROR", err)
+			}
+		}
+	}()
+
+	<-done
 }
