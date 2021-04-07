@@ -113,8 +113,8 @@ func (d *Driver) removeVolume(v *Volume) error {
 }
 
 func (d *Driver) watcher() {
+	d.addDirWatch(seaweedfsSockets)
 	defer d.Watcher.Notifier.Close()
-	d.Watcher.Notifier.Add(seaweedfsSockets)
 	done := make(chan bool)
 
 	go func() {
