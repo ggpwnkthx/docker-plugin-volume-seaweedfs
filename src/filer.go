@@ -137,7 +137,7 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join("/mnt", f.alias, "volumes.json")
+	path := filepath.Join(f.Mountpoint, "volumes.json")
 	err = ioutil.WriteFile(path, data, 0644)
 	if err != nil {
 		return err
