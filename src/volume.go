@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -41,6 +40,11 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 		}
 	}
 	v.Filer = driver.Filers[v.Options["filer"]]
+	if _, found := v.Options["filer.path"]; found {
+		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Filer.alias, v.Options["filer.path"])
+	} else {
+		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Filer.alias)
+	}
 
 	v.Driver.Volumes[v.Name] = v
 	return nil
@@ -67,28 +71,6 @@ func (v *Volume) Remove() error {
 
 func (v *Volume) Mount() error {
 	logerr("mounting " + v.Name)
-	if v.weed == nil {
-		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Name)
-		mOptions := []string{
-			"mount",
-			"-allowOthers",
-			"-dir=" + v.Mountpoint,
-			"-dirAutoCreate",
-			"-filer=localhost:" + strconv.Itoa(v.Filer.relays["http"].port),
-			"-volumeServerAccess=filerProxy",
-		}
-		for oKey, oValue := range v.Options {
-			if oKey != "filer" {
-				if oValue != "" {
-					mOptions = append(mOptions, "-"+oKey+"="+oValue)
-				} else {
-					mOptions = append(mOptions, "-"+oKey)
-				}
-			}
-		}
-		os.MkdirAll(v.Mountpoint, os.ModePerm)
-		v.weed = SeaweedFSMount(mOptions)
-	}
 	return nil
 }
 

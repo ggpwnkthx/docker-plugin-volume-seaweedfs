@@ -54,7 +54,7 @@ func (f *Filer) init() error {
 	go f.proxet(f.relays["http"])
 	go f.proxet(f.relays["grpc"])
 
-	f.Mountpoint = filepath.Join("/mnt", f.alias)
+	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
 	os.MkdirAll(f.Mountpoint, os.ModePerm)
 
 	mOptions := []string{
