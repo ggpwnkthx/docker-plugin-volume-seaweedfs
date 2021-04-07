@@ -42,8 +42,6 @@ func (d *Driver) init() error {
 	return d.load()
 }
 func (d *Driver) load() error {
-	d.Lock()
-	defer d.Unlock()
 	filers, err := availableFilers()
 	if err != nil {
 		return err
@@ -55,9 +53,9 @@ func (d *Driver) load() error {
 			return err
 		}
 	}
-	for alias := range d.Filers {
+	for alias, f := range d.Filers {
 		if !Contains(filers, alias) {
-			delete(d.Filers, alias)
+			d.removeFiler(f)
 		}
 	}
 	return nil
