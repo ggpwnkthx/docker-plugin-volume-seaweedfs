@@ -128,7 +128,6 @@ func (d *Driver) watcher() {
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					f, _ := os.Open(event.Name)
 					fi, _ := f.Stat()
-					d.Lock()
 					if fi.IsDir() {
 						d.addDirWatch(event.Name)
 					} else {
@@ -145,7 +144,6 @@ func (d *Driver) watcher() {
 							d.removeDirWatch(dir)
 						}
 					}
-					d.Unlock()
 				}
 			case err, ok := <-d.Watcher.Notifier.Errors:
 				logerr("error:", err.Error())
