@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,7 +14,6 @@ type Volume struct {
 	Driver  *Driver
 	Filer   *Filer
 	Options map[string]string
-	weed    *exec.Cmd
 }
 
 func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
@@ -52,11 +50,6 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 
 func (v *Volume) Remove() error {
 	if _, err := os.Stat(v.Mountpoint); !os.IsNotExist(err) {
-		err := exec.Command("umount", v.Mountpoint).Run()
-		if err != nil {
-			return err
-		}
-		v.weed.Wait()
 		err = os.RemoveAll(v.Mountpoint)
 		if err != nil {
 			return err
@@ -64,7 +57,6 @@ func (v *Volume) Remove() error {
 	}
 	logerr("removing mount " + v.Name)
 	delete(v.Driver.Volumes, v.Name)
-	//delete(v.Filer.Volumes, v.Name)
 	v.Filer.saveRunning()
 	return nil
 }
@@ -83,6 +75,5 @@ func (v *Volume) getStatus() map[string]interface{} {
 	logerr("getting status of mount " + v.Name)
 	status := make(map[string]interface{})
 	status["options"] = v.Options
-	status["weed"] = v.weed
 	return status
 }
