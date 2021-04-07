@@ -65,7 +65,8 @@ func (f *Filer) init() error {
 		"-volumeServerAccess=filerProxy",
 	}
 	f.weed = SeaweedFSMount(mOptions)
-	f.Driver.Filers[f.alias] = f
+
+	f.Driver.addFiler(f)
 	logerr("filer", f.alias, "initialized")
 
 	return nil
@@ -78,7 +79,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 	}
 	f.alias = alias
 	f.Driver = driver
-	if _, found := driver.Filers[alias]; !found {
+	if !f.Driver.isFiler(f.alias) {
 		err := f.init()
 		if err != nil {
 			return err
@@ -109,8 +110,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 			if !Contains(names, name) {
 				logerr("found unused mount", name)
 				if volume.Filer.alias == f.alias {
-					logerr("removing mount", name)
-					delete(driver.Volumes, name)
+					f.Driver.deleteVolume(volume)
 				}
 			}
 		}

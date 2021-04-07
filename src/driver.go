@@ -108,8 +108,38 @@ func (d *Driver) listVolumes() []*volume.Volume {
 	return volumes
 }
 
+func (d *Driver) isFiler(alias string) bool {
+	d.RLock()
+	defer d.RUnlock()
+	if _, found := d.Filers[alias]; found {
+		return true
+	}
+	return false
+}
+func (d *Driver) addFiler(f *Filer) {
+	d.Lock()
+	defer d.Unlock()
+	d.Filers[f.alias] = f
+}
+func (d *Driver) removeFiler(f *Filer) {
+	d.Lock()
+	defer d.Unlock()
+	delete(d.Filers, f.alias)
+}
+
+func (d *Driver) addVolume(v *Volume) {
+	d.Lock()
+	defer d.Unlock()
+	d.Volumes[v.Name] = v
+}
+func (d *Driver) deleteVolume(v *Volume) {
+	d.Lock()
+	defer d.Unlock()
+	delete(d.Volumes, v.Name)
+}
 func (d *Driver) removeVolume(v *Volume) error {
-	return v.Remove()
+	d.deleteVolume(v)
+	return v.Filer.saveRunning()
 }
 
 func (d *Driver) watcher() {
@@ -130,6 +160,10 @@ func (d *Driver) watcher() {
 					fi, _ := f.Stat()
 					if fi.IsDir() {
 						d.addDirWatch(event.Name)
+						if isFiler(fi.Name()) {
+							d.removeDirWatch(fi.Name())
+							d.load()
+						}
 					} else {
 						logerr("found new file", fi.Name())
 						dir := filepath.Dir(event.Name)
