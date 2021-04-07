@@ -97,7 +97,7 @@ func (d *Driver) removeVolume(v *Volume) error {
 
 func (d *Driver) watcher() {
 	defer d.Watcher.Close()
-	d.Watcher.Add(volume.DefaultDockerRootDirectory)
+	d.Watcher.Add(seaweedfsSockets)
 	done := make(chan bool)
 
 	go func() {
