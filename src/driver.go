@@ -12,7 +12,7 @@ type Driver struct {
 	sync.RWMutex
 	Filers  map[string]*Filer
 	Volumes map[string]*Volume
-	Watcher fsnotify.Watcher
+	Watcher *fsnotify.Watcher
 }
 
 func (d *Driver) init() error {
@@ -91,18 +91,30 @@ func (d *Driver) removeVolume(v *Volume) error {
 }
 
 func (d *Driver) watcher() {
-	d.Watcher, _ = fsnotify.NewWatcher()
-	defer d.Watcher.Close()
-	d.Watcher.Add(volume.DefaultDockerRootDirectory)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logerr(err.Error())
+	}
+	defer watcher.Close()
+	watcher.Add(volume.DefaultDockerRootDirectory)
 	done := make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case event := <-d.Watcher.Events: // watch for events
-				logerr("EVENT! %#v\n", event)
-			case err := <-d.Watcher.Errors: // watch for errors
-				logerr("ERROR", err)
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				logerr("event:", event.String())
+				if event.Op&fsnotify.Write == fsnotify.Write {
+					logerr("modified file:", event.Name)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				logerr("error:", err.Error())
 			}
 		}
 	}()
