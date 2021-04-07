@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"path/filepath"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -109,8 +110,12 @@ func (d *Driver) watcher() {
 				}
 				logerr("event:", event.String())
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					logerr("event.Name:", event.Name)
-
+					alias := filepath.Dir(event.Name)
+					filer := new(Filer)
+					err := filer.load(alias, d)
+					if err != nil {
+						logerr(err.Error())
+					}
 					//filer.load(alias, d)
 				}
 			case err, ok := <-d.Watcher.Errors:
