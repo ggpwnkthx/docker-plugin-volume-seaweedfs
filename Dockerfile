@@ -1,5 +1,5 @@
 FROM golang:1-alpine as builder
-RUN apk add --no-cache --virtual .build-deps gcc libc-dev git make
+RUN apk add --no-cache --virtual .build-deps gcc libc-dev git make wget curl ca-certificates
 ARG RELEASE=latest
 RUN \
     ARCH=$(if [ $(uname -m) == "x86_64" ] && [ $(getconf LONG_BIT) == "64" ]; then echo "amd64"; \
