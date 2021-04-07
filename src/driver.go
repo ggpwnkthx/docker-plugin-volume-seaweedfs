@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -13,7 +14,10 @@ type Driver struct {
 	sync.RWMutex
 	Filers  map[string]*Filer
 	Volumes map[string]*Volume
-	Watcher *fsnotify.Watcher
+	Watcher struct {
+		Notifier *fsnotify.Watcher
+		List     map[string]map[string]bool
+	}
 }
 
 func (d *Driver) init() error {
@@ -27,7 +31,13 @@ func (d *Driver) init() error {
 	if err != nil {
 		logerr(err.Error())
 	}
-	d.Watcher = watcher
+	d.Watcher = struct {
+		Notifier *fsnotify.Watcher
+		List     map[string]map[string]bool
+	}{
+		Notifier: watcher,
+		List:     map[string]map[string]bool{},
+	}
 	go d.watcher()
 	return d.load()
 }
@@ -97,14 +107,14 @@ func (d *Driver) removeVolume(v *Volume) error {
 }
 
 func (d *Driver) watcher() {
-	defer d.Watcher.Close()
-	d.Watcher.Add(seaweedfsSockets)
+	defer d.Watcher.Notifier.Close()
+	d.Watcher.Notifier.Add(seaweedfsSockets)
 	done := make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case event, ok := <-d.Watcher.Events:
+			case event, ok := <-d.Watcher.Notifier.Events:
 				if !ok {
 					return
 				}
@@ -114,12 +124,26 @@ func (d *Driver) watcher() {
 					fi, _ := f.Stat()
 					if fi.IsDir() {
 						logerr("wataching additional dir", fi.Name())
-						d.Watcher.Add(event.Name)
+						d.Watcher.Notifier.Add(event.Name)
 					} else {
 						logerr("found new file", fi.Name())
+						dir := filepath.Dir(event.Name)
+						switch fi.Name() {
+						case "http.sock", "grpc.sock":
+							d.Watcher.List[dir][fi.Name()] = true
+							if d.Watcher.List[dir]["http.sock"] && d.Watcher.List[dir]["grpc.sock"] {
+								delete(d.Watcher.List, dir)
+								logerr("requirements met, loading filer", dir)
+								d.load()
+							}
+						default:
+							d.Watcher.Notifier.Remove(event.Name)
+							delete(d.Watcher.List, dir)
+							logerr("no longer wataching dir", dir)
+						}
 					}
 				}
-			case err, ok := <-d.Watcher.Errors:
+			case err, ok := <-d.Watcher.Notifier.Errors:
 				if !ok {
 					return
 				}
