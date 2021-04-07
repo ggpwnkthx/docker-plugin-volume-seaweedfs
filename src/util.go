@@ -9,6 +9,12 @@ import (
 	"github.com/phayes/freeport"
 )
 
+func logerr(message ...string) {
+	cmd := exec.Command("echo", message...)
+	cmd.Stdout = Stderr
+	cmd.Run()
+}
+
 func getFreePort() (int, error) {
 	port, err := freeport.GetFreePort()
 	if err != nil {

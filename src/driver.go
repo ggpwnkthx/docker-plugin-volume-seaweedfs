@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"path/filepath"
+	"os"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -110,13 +110,14 @@ func (d *Driver) watcher() {
 				}
 				logerr("event:", event.String())
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					alias := filepath.Base(event.Name)
-					filer := new(Filer)
-					err := filer.load(alias, d)
-					if err != nil {
-						logerr(err.Error())
+					f, _ := os.Open(event.Name)
+					fi, _ := f.Stat()
+					if fi.IsDir() {
+						logerr("wataching additional dir", fi.Name())
+						d.Watcher.Add(event.Name)
+					} else {
+						logerr("found new file", fi.Name())
 					}
-					//filer.load(alias, d)
 				}
 			case err, ok := <-d.Watcher.Errors:
 				if !ok {
