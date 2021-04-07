@@ -88,6 +88,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 	path := filepath.Join(f.Mountpoint, "volumes.json")
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
+		logerr("found ", path)
 		requests := []volume.CreateRequest{}
 		names := []string{}
 		json.Unmarshal(data, &requests)
@@ -96,6 +97,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 				r.Options = map[string]string{}
 			}
 			r.Options["filer"] = f.alias
+			logerr("adding volume ", r.Name, " from filer ", f.alias)
 			v := new(Volume)
 			err := v.Create(&r, f.Driver)
 			if err != nil {
@@ -119,6 +121,7 @@ func (f *Filer) saveRunning() error {
 	volumes := []*volume.CreateRequest{}
 	for _, v := range f.Driver.Volumes {
 		if v.Options["filer"] == f.alias {
+			logerr("saveRunning: ", "found volume ", v.Name)
 			volume := volume.CreateRequest{
 				Name:    v.Name,
 				Options: v.Options,
@@ -138,6 +141,7 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 		return err
 	}
 	path := filepath.Join(f.Mountpoint, "volumes.json")
+	logerr("saving to ", path)
 	err = ioutil.WriteFile(path, data, 0644)
 	if err != nil {
 		return err
@@ -148,12 +152,15 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 func isFiler(alias string) bool {
 	http := filepath.Join(seaweedfsSockets, alias, "http.sock")
 	if _, err := os.Stat(http); os.IsNotExist(err) {
+		logerr("isFiler: ", alias, " is missing http.sock")
 		return false
 	}
 	grpc := filepath.Join(seaweedfsSockets, alias, "grpc.sock")
 	if _, err := os.Stat(grpc); os.IsNotExist(err) {
+		logerr("isFiler: ", alias, " is missing grpc.sock")
 		return false
 	}
+	logerr("isFiler: ", alias, " is a filer")
 	return true
 }
 func availableFilers() ([]string, error) {
@@ -164,6 +171,7 @@ func availableFilers() ([]string, error) {
 	}
 	for _, i := range items {
 		if i.IsDir() {
+			logerr("availableFilers: ", "found dir ", i.Name())
 			dirs = append(dirs, i.Name())
 		}
 	}
