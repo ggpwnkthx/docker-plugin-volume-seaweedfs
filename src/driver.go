@@ -110,7 +110,7 @@ func (d *Driver) watcher() {
 				}
 				logerr("event:", event.String())
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					alias := filepath.Dir(event.Name)
+					alias := filepath.Base(event.Name)
 					filer := new(Filer)
 					err := filer.load(alias, d)
 					if err != nil {
