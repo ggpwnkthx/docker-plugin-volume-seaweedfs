@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -39,6 +40,7 @@ func (v *Volume) Create(r *volume.CreateRequest, driver *Driver) error {
 	v.Filer = driver.Filers[v.Options["filer"]]
 	if _, found := v.Options["filer.path"]; found {
 		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Filer.alias, v.Options["filer.path"])
+		os.MkdirAll(v.Mountpoint, os.ModePerm)
 	} else {
 		v.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, v.Filer.alias)
 	}
