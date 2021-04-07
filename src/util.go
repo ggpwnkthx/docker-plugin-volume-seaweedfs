@@ -29,16 +29,14 @@ func Contains(haystack []string, needle string) bool {
 	return false
 }
 
-func SeaweedFSMount(cmd *exec.Cmd, options []string) {
+func SeaweedFSMount(options []string) *exec.Cmd {
 	logerr(options...)
-	if cmd == nil {
-		cmd = exec.Command("/usr/bin/weed", options...)
-	}
+	cmd := exec.Command("/usr/bin/weed", options...)
 	stderr, _ := cmd.StderrPipe()
 	err := cmd.Start()
 	if err != nil {
 		logerr(err.Error())
-		return
+		return nil
 	}
 	logerr("mount started, waiting for stable connection")
 	scanner := bufio.NewScanner(stderr)
@@ -50,4 +48,5 @@ func SeaweedFSMount(cmd *exec.Cmd, options []string) {
 		}
 	}
 	logerr("stablility reached")
+	return cmd
 }

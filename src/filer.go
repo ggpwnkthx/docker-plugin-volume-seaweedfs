@@ -15,10 +15,11 @@ import (
 )
 
 type Filer struct {
-	alias  string
-	Driver *Driver
-	relays map[string]*Relay
-	weed   *exec.Cmd
+	alias      string
+	Driver     *Driver
+	relays     map[string]*Relay
+	Mountpoint string
+	weed       *exec.Cmd
 }
 type Relay struct {
 	port   int
@@ -53,17 +54,17 @@ func (f *Filer) init() error {
 	go f.proxet(f.relays["http"])
 	go f.proxet(f.relays["grpc"])
 
-	mountpoint := filepath.Join("/mnt", f.alias)
-	os.MkdirAll(mountpoint, os.ModePerm)
+	f.Mountpoint = filepath.Join("/mnt", f.alias)
+	os.MkdirAll(f.Mountpoint, os.ModePerm)
 
 	mOptions := []string{
 		"mount",
 		"-allowOthers",
-		"-dir=" + mountpoint,
+		"-dir=" + f.Mountpoint,
 		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
 		"-volumeServerAccess=filerProxy",
 	}
-	SeaweedFSMount(f.weed, mOptions)
+	f.weed = SeaweedFSMount(mOptions)
 	f.Driver.Filers[f.alias] = f
 	logerr("filer " + f.alias + " initialized")
 
