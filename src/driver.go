@@ -108,8 +108,10 @@ func (d *Driver) watcher() {
 					return
 				}
 				logerr("event:", event.String())
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					logerr("modified file:", event.Name)
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					logerr("event.Name:", event.Name)
+
+					//filer.load(alias, d)
 				}
 			case err, ok := <-d.Watcher.Errors:
 				if !ok {
