@@ -85,7 +85,7 @@ func (f *Filer) load(alias string, driver *Driver) error {
 		}
 	}
 
-	path := filepath.Join("/mnt", f.alias, "volumes.json")
+	path := filepath.Join(f.Mountpoint, "volumes.json")
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
 		requests := []volume.CreateRequest{}
