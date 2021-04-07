@@ -42,6 +42,8 @@ func (d *Driver) init() error {
 	return d.load()
 }
 func (d *Driver) load() error {
+	d.Lock()
+	defer d.Unlock()
 	filers, err := availableFilers()
 	if err != nil {
 		return err
@@ -84,6 +86,8 @@ func (d *Driver) createVolume(r *volume.CreateRequest) error {
 }
 func (d *Driver) getVolume(name string) (*Volume, error) {
 	d.load()
+	d.RLock()
+	defer d.RUnlock()
 	if v, found := d.Volumes[name]; found {
 		return v, nil
 	}
@@ -91,6 +95,8 @@ func (d *Driver) getVolume(name string) (*Volume, error) {
 }
 func (d *Driver) listVolumes() []*volume.Volume {
 	d.load()
+	d.RLock()
+	defer d.RUnlock()
 	var volumes []*volume.Volume
 	for _, v := range d.Volumes {
 		volumes = append(volumes, &volume.Volume{
@@ -122,35 +128,53 @@ func (d *Driver) watcher() {
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					f, _ := os.Open(event.Name)
 					fi, _ := f.Stat()
+					d.Lock()
 					if fi.IsDir() {
 						logerr("wataching additional dir", fi.Name())
-						d.Watcher.Notifier.Add(event.Name)
+						d.addDirWatch(event.Name)
 					} else {
 						logerr("found new file", fi.Name())
 						dir := filepath.Dir(event.Name)
 						switch fi.Name() {
 						case "http.sock", "grpc.sock":
-							d.Watcher.List[dir][fi.Name()] = true
-							if d.Watcher.List[dir]["http.sock"] && d.Watcher.List[dir]["grpc.sock"] {
-								delete(d.Watcher.List, dir)
-								logerr("requirements met, loading filer", dir)
+							d.addFoundSocket(dir, fi.Name())
+							if isFiler(dir) {
+								d.removeDirWatch(dir)
 								d.load()
 							}
 						default:
-							d.Watcher.Notifier.Remove(event.Name)
-							delete(d.Watcher.List, dir)
-							logerr("no longer wataching dir", dir)
+							d.removeDirWatch(dir)
 						}
 					}
+					d.Unlock()
 				}
 			case err, ok := <-d.Watcher.Notifier.Errors:
+				logerr("error:", err.Error())
 				if !ok {
 					return
 				}
-				logerr("error:", err.Error())
 			}
 		}
 	}()
 
 	<-done
+}
+func (d *Driver) addDirWatch(dir string) {
+	d.Lock()
+	defer d.Unlock()
+	d.Watcher.Notifier.Add(dir)
+}
+func (d *Driver) removeDirWatch(dir string) {
+	d.Lock()
+	defer d.Unlock()
+	logerr("no longer wataching dir", dir)
+	d.Watcher.Notifier.Remove(dir)
+	if _, found := d.Watcher.List[dir]; found {
+		delete(d.Watcher.List, dir)
+	}
+}
+func (d *Driver) addFoundSocket(alias string, socket string) {
+	d.Lock()
+	defer d.Unlock()
+	d.Watcher.List[alias][socket] = true
 }
