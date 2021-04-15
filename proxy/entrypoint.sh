@@ -1,12 +1,6 @@
 #!/bin/sh
-cat <<EOF > /usr/local/etc/haproxy/haproxy.cfg
-global
-    log stdout local0 debug
-defaults
-    log global
-    timeout connect 5000ms
-    timeout client 50000ms
-    timeout server 50000ms
+if [ -d /var/lib/docker/plugins/seaweedfs/$1 ]; then
+    cat <<EOF >> /usr/local/etc/haproxy/haproxy.cfg
 listen http_socket
     mode http
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/http.sock
@@ -16,5 +10,6 @@ listen grpc_socket
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock
     server grpc_filer filer:18888
 EOF
-
-/docker-entrypoint.sh "haproxy" "-f" "/usr/local/etc/haproxy/haproxy.cfg"
+    haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+fi
+echo "/var/lib/docker/plugins/seaweedfs/$1 not found"
