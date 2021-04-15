@@ -1,30 +1,20 @@
 #!/bin/sh
-cat <<EOF > /etc/nginx/nginx.conf
-# Run nginx as a normal console program, not as a daemon
-daemon off;
-
-# Log errors to stdout
-error_log /dev/stdout info;
-
-events {} # Boilerplate
-
-http {
-    # Print the access log to stdout
-    access_log /dev/stdout;
-
-    server {
-        listen unix:/var/lib/docker/plugins/seaweedfs/$1/http.sock;
-        location / {
-            proxy_pass http://filer:8888;
-        }
-    }
-    server {
-        listen unix:/var/lib/docker/plugins/seaweedfs/$1/grpc.sock http2;
-        location / {
-            grpc_pass grpc://filer:18888;
-        }
-    }
-}
+cat <<EOF > /usr/local/etc/haproxy/haproxy.cfg
+global
+    log stdout local0 debug
+defaults
+    log global
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+listen http_socket
+    mode http
+    bind unix@/var/lib/docker/plugins/seaweedfs/$1/http.sock
+    server http_filer filer:8888 check
+listen grpc_socket
+    mode tcp
+    bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock
+    server grpc_filer filer:18888
 EOF
 
-/docker-entrypoint.sh "nginx"
+/docker-entrypoint.sh "haproxy" "-f" "/usr/local/etc/haproxy/haproxy.cfg"
