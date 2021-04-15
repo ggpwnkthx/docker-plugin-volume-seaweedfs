@@ -20,7 +20,7 @@ COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/sbin/hapro
 COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/sbin/dataplaneapi /usr/sbin/dataplaneapi
 COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/etc/haproxy /usr/local/etc/haproxy
 COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg
-RUN mkdir -f /etc/haproxy/transactions
+RUN mkdir -p /etc/haproxy/transactions
 
 COPY ./entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -33,21 +34,9 @@ func (d *Driver) init() error {
 	}
 
 	// Initialize HAProxy native client
-	hapcc := &configuration.Client{}
-	hapccp := configuration.ClientParams{
-		ConfigurationFile:      "/usr/local/etc/haproxy/haproxy.cfg",
-		Haproxy:                "/usr/local/sbin/haproxy",
-		UseValidation:          false,
-		PersistentTransactions: true,
-		TransactionDir:         "/tmp/haproxy",
-	}
-	err := hapcc.Init(hapccp)
+	hapcc, err := configuration.DefaultClient()
 	if err != nil {
-		logerr("Error setting up configuration client, using default one")
-		hapcc, err = configuration.DefaultClient()
-		if err != nil {
-			logerr("Error setting up default configuration client, exiting...")
-		}
+		logerr("Error setting up default configuration client, exiting...")
 	}
 	haprtc := &runtime.Client{}
 	_, globalConf, err := hapcc.GetGlobalConfiguration("")
@@ -74,6 +63,12 @@ func (d *Driver) init() error {
 
 	d.HAProxy = &client_native.HAProxyClient{}
 	d.HAProxy.Init(hapcc, haprtc)
+
+	i, s, err := d.HAProxy.Configuration.GetRawConfiguration("", 1)
+	if err != nil {
+		logerr(err.Error())
+	}
+	logerr(strconv.FormatInt(i, 10), s)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
