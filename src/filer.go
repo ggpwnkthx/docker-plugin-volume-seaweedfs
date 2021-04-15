@@ -21,110 +21,84 @@ type Filer struct {
 	weed       *exec.Cmd
 }
 type Relay struct {
-	port   int64
-	socket string
+	Backend  *models.Backend
+	Server   *models.Server
+	Frontend *models.Frontend
+	Bind     *models.Bind
 }
 
 func (f *Filer) init() error {
-	port, err := getFreePort()
+	http_port, err := getFreePort()
 	if err != nil {
 		return err
 	}
-	logerr("initializing filer using port", strconv.FormatInt(port, 10))
+	grpc_port := http_port + 10000
+	logerr("initializing filer using port", strconv.FormatInt(http_port, 10))
 
+	//tOut := int64(5)
 	f.relays = map[string]*Relay{}
 	f.relays["http"] = &Relay{
-		port:   port,
-		socket: filepath.Join(seaweedfsSockets, f.alias, "http.sock"),
-	}
-	if _, err := os.Stat(f.relays["http"].socket); os.IsNotExist(err) {
-		return errors.New("http unix socket not found")
-	}
-	f.relays["grpc"] = &Relay{
-		port:   port + 10000,
-		socket: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
-	}
-	if _, err := os.Stat(f.relays["grpc"].socket); os.IsNotExist(err) {
-		return errors.New("grpc unix socket not found")
-	}
-
-	version, backends, err := f.Driver.HAProxy.Configuration.GetBackends("")
-	if err != nil {
-		return err
-	}
-	http_found := false
-	grpc_found := false
-	for _, b := range backends {
-		if b.Name == f.alias+"_http" {
-			http_found = true
-		}
-		if b.Name == f.alias+"_grpc" {
-			grpc_found = true
-		}
-	}
-	if !http_found {
-		err := f.Driver.HAProxy.Configuration.CreateBackend(&models.Backend{
+		Backend: &models.Backend{
 			Name: f.alias + "_http",
 			Mode: "http",
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateServer(f.alias+"_http", &models.Server{
+		},
+		Server: &models.Server{
 			Name:    f.alias + "_http",
 			Address: filepath.Join(seaweedfsSockets, f.alias, "http.sock"),
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateFrontend(&models.Frontend{
+		},
+		Frontend: &models.Frontend{
 			Name:           f.alias + "_http",
 			Mode:           "http",
 			DefaultBackend: f.alias + "_http",
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateBind(f.alias+"_http", &models.Bind{
+		},
+		Bind: &models.Bind{
 			Name:    f.alias + "_http",
 			Address: "0.0.0.0",
-			Port:    &f.relays["https"].port,
-		}, "", version)
-		if err != nil {
-			return err
-		}
+			Port:    &http_port,
+		},
 	}
-	if !grpc_found {
-		err := f.Driver.HAProxy.Configuration.CreateBackend(&models.Backend{
+	if _, err := os.Stat(f.relays["http"].Server.Address); os.IsNotExist(err) {
+		return errors.New("http unix socket not found")
+	}
+	f.relays["grpc"] = &Relay{
+		Backend: &models.Backend{
 			Name: f.alias + "_grpc",
 			Mode: "tcp",
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateServer(f.alias+"_grpc", &models.Server{
+		},
+		Server: &models.Server{
 			Name:    f.alias + "_grpc",
 			Address: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateFrontend(&models.Frontend{
+		},
+		Frontend: &models.Frontend{
 			Name:           f.alias + "_grpc",
 			Mode:           "tcp",
 			DefaultBackend: f.alias + "_grpc",
-		}, "", version)
-		if err != nil {
-			return err
-		}
-		err = f.Driver.HAProxy.Configuration.CreateBind(f.alias+"_grpc", &models.Bind{
+		},
+		Bind: &models.Bind{
 			Name:    f.alias + "_grpc",
 			Address: "0.0.0.0",
-			Port:    &f.relays["grpc"].port,
-		}, "", version)
-		if err != nil {
-			return err
-		}
+			Port:    &grpc_port,
+		},
+	}
+	if _, err := os.Stat(f.relays["grpc"].Server.Address); os.IsNotExist(err) {
+		return errors.New("grpc unix socket not found")
+	}
+
+	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", 1)
+	err = f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", 1)
+	if err != nil {
+		logerr("create server http")
+		return err
+	}
+	err = f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", 1)
+	if err != nil {
+		logerr("create frontend http")
+		return err
+	}
+	err = f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", 1)
+	if err != nil {
+		logerr("create bind http")
+		return err
 	}
 
 	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
@@ -134,7 +108,7 @@ func (f *Filer) init() error {
 		"mount",
 		"-allowOthers",
 		"-dir=" + f.Mountpoint,
-		"-filer=localhost:" + strconv.FormatInt(f.relays["http"].port, 10),
+		"-filer=localhost:" + strconv.FormatInt(*f.relays["http"].Bind.Port, 10),
 		"-volumeServerAccess=filerProxy",
 	}
 	f.weed = SeaweedFSMount(mOptions)

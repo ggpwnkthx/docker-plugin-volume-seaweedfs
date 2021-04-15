@@ -33,24 +33,24 @@ func (d *Driver) init() error {
 	}
 
 	// Initialize HAProxy native client
-	confClient := &configuration.Client{}
-	confParams := configuration.ClientParams{
+	hapcc := &configuration.Client{}
+	hapccp := configuration.ClientParams{
 		ConfigurationFile:      "/usr/local/etc/haproxy/haproxy.cfg",
 		Haproxy:                "/usr/local/sbin/haproxy",
-		UseValidation:          true,
+		UseValidation:          false,
 		PersistentTransactions: true,
 		TransactionDir:         "/tmp/haproxy",
 	}
-	err := confClient.Init(confParams)
+	err := hapcc.Init(hapccp)
 	if err != nil {
 		logerr("Error setting up configuration client, using default one")
-		confClient, err = configuration.DefaultClient()
+		hapcc, err = configuration.DefaultClient()
 		if err != nil {
 			logerr("Error setting up default configuration client, exiting...")
 		}
 	}
-	runtimeClient := &runtime.Client{}
-	_, globalConf, err := confClient.GetGlobalConfiguration("")
+	haprtc := &runtime.Client{}
+	_, globalConf, err := hapcc.GetGlobalConfiguration("")
 	if err == nil {
 		socketList := make([]string, 0, 1)
 		runtimeAPIs := globalConf.RuntimeApis
@@ -59,21 +59,21 @@ func (d *Driver) init() error {
 			for _, r := range runtimeAPIs {
 				socketList = append(socketList, *r.Address)
 			}
-			if err := runtimeClient.Init(socketList, "", 0); err != nil {
+			if err := haprtc.Init(socketList, "", 0); err != nil {
 				logerr("Error setting up runtime client, not using one")
 				return nil
 			}
 		} else {
 			logerr("Runtime API not configured, not using it")
-			runtimeClient = nil
+			haprtc = nil
 		}
 	} else {
 		logerr("Cannot read runtime API configuration, not using it")
-		runtimeClient = nil
+		haprtc = nil
 	}
 
 	d.HAProxy = &client_native.HAProxyClient{}
-	d.HAProxy.Init(confClient, runtimeClient)
+	d.HAProxy.Init(hapcc, haprtc)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
