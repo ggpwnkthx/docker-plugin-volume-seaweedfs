@@ -1,6 +1,6 @@
 FROM haproxy:alpine
 RUN apk update && apk add --no-cache curl tar
-COPY ./proxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+COPY ./haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 # Get HAProxy DataPlaneAPI binary
 RUN ARCH="$(apk --print-arch)"; \
     case "$ARCH" in \
