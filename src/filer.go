@@ -3,15 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/haproxytech/models"
 )
 
 type Filer struct {
@@ -22,10 +21,8 @@ type Filer struct {
 	weed       *exec.Cmd
 }
 type Relay struct {
-	port   int
+	port   int64
 	socket string
-	c1     *net.Conn
-	c2     *net.Conn
 }
 
 func (f *Filer) init() error {
@@ -33,7 +30,7 @@ func (f *Filer) init() error {
 	if err != nil {
 		return err
 	}
-	logerr("initializing filer using port", strconv.Itoa(port))
+	logerr("initializing filer using port", strconv.FormatInt(port, 10))
 
 	f.relays = map[string]*Relay{}
 	f.relays["http"] = &Relay{
@@ -51,8 +48,84 @@ func (f *Filer) init() error {
 		return errors.New("grpc unix socket not found")
 	}
 
-	go f.proxet(f.relays["http"])
-	go f.proxet(f.relays["grpc"])
+	version, backends, err := f.Driver.HAProxy.Configuration.GetBackends("")
+	if err != nil {
+		return err
+	}
+	http_found := false
+	grpc_found := false
+	for _, b := range backends {
+		if b.Name == f.alias+"_http" {
+			http_found = true
+		}
+		if b.Name == f.alias+"_grpc" {
+			grpc_found = true
+		}
+	}
+	if !http_found {
+		err := f.Driver.HAProxy.Configuration.CreateBackend(&models.Backend{
+			Name: f.alias + "_http",
+			Mode: "http",
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateServer(f.alias+"_http", &models.Server{
+			Name:    f.alias + "_http",
+			Address: filepath.Join(seaweedfsSockets, f.alias, "http.sock"),
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateFrontend(&models.Frontend{
+			Name:           f.alias + "_http",
+			Mode:           "http",
+			DefaultBackend: f.alias + "_http",
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateBind(f.alias+"_http", &models.Bind{
+			Name:    f.alias + "_http",
+			Address: "0.0.0.0",
+			Port:    &f.relays["https"].port,
+		}, "", version)
+		if err != nil {
+			return err
+		}
+	}
+	if !grpc_found {
+		err := f.Driver.HAProxy.Configuration.CreateBackend(&models.Backend{
+			Name: f.alias + "_grpc",
+			Mode: "tcp",
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateServer(f.alias+"_grpc", &models.Server{
+			Name:    f.alias + "_grpc",
+			Address: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateFrontend(&models.Frontend{
+			Name:           f.alias + "_grpc",
+			Mode:           "tcp",
+			DefaultBackend: f.alias + "_grpc",
+		}, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateBind(f.alias+"_grpc", &models.Bind{
+			Name:    f.alias + "_grpc",
+			Address: "0.0.0.0",
+			Port:    &f.relays["grpc"].port,
+		}, "", version)
+		if err != nil {
+			return err
+		}
+	}
 
 	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
 	os.MkdirAll(f.Mountpoint, os.ModePerm)
@@ -61,7 +134,7 @@ func (f *Filer) init() error {
 		"mount",
 		"-allowOthers",
 		"-dir=" + f.Mountpoint,
-		"-filer=localhost:" + strconv.Itoa(f.relays["http"].port),
+		"-filer=localhost:" + strconv.FormatInt(f.relays["http"].port, 10),
 		"-volumeServerAccess=filerProxy",
 	}
 	f.weed = SeaweedFSMount(mOptions)
@@ -182,36 +255,4 @@ func availableFilers() ([]string, error) {
 		}
 	}
 	return filers, nil
-}
-
-func (f *Filer) proxet(relay *Relay) {
-	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(relay.port))
-	if err != nil {
-		logerr(err.Error())
-	}
-	for {
-		c1, err := listener.Accept()
-		relay.c1 = &c1
-		if err != nil {
-			logerr(err.Error())
-			continue
-		}
-		go f.proxetHandler(relay)
-	}
-}
-func (f *Filer) proxetHandler(relay *Relay) {
-	c2, err := net.Dial("unix", relay.socket)
-	if err != nil {
-		logerr(err.Error())
-		return
-	}
-	relay.c2 = &c2
-	go proxetCopy(relay.c1, relay.c2) // c1 -> c2
-	proxetCopy(relay.c2, relay.c1)    // c2 -> c1
-}
-func proxetCopy(writer *net.Conn, reader *net.Conn) {
-	_, err := io.Copy(*writer, *reader)
-	if err != nil {
-		logerr(err.Error())
-	}
 }

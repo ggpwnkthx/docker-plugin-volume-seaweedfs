@@ -15,7 +15,7 @@ func logerr(message ...string) {
 	cmd.Run()
 }
 
-func getFreePort() (int, error) {
+func getFreePort() (int64, error) {
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		return 0, errors.New("freeport: " + err.Error())
@@ -23,7 +23,7 @@ func getFreePort() (int, error) {
 	if port == 0 || port > 55535 {
 		return getFreePort()
 	}
-	return port, nil
+	return int64(port), nil
 }
 
 func Contains(haystack []string, needle string) bool {

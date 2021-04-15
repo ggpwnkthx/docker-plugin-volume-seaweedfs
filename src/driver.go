@@ -8,12 +8,16 @@ import (
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/fsnotify/fsnotify"
+	client_native "github.com/haproxytech/client-native"
+	"github.com/haproxytech/client-native/configuration"
+	"github.com/haproxytech/client-native/runtime"
 )
 
 type Driver struct {
 	sync.RWMutex
 	Filers  map[string]*Filer
 	Volumes map[string]*Volume
+	HAProxy *client_native.HAProxyClient
 	Watcher struct {
 		Notifier *fsnotify.Watcher
 		List     map[string]map[string]bool
@@ -27,6 +31,50 @@ func (d *Driver) init() error {
 	if d.Volumes == nil {
 		d.Volumes = map[string]*Volume{}
 	}
+
+	// Initialize HAProxy native client
+	confClient := &configuration.Client{}
+	confParams := configuration.ClientParams{
+		ConfigurationFile:      "/usr/local/etc/haproxy/haproxy.cfg",
+		Haproxy:                "/usr/local/sbin/haproxy",
+		UseValidation:          true,
+		PersistentTransactions: true,
+		TransactionDir:         "/tmp/haproxy",
+	}
+	err := confClient.Init(confParams)
+	if err != nil {
+		logerr("Error setting up configuration client, using default one")
+		confClient, err = configuration.DefaultClient()
+		if err != nil {
+			logerr("Error setting up default configuration client, exiting...")
+		}
+	}
+	runtimeClient := &runtime.Client{}
+	_, globalConf, err := confClient.GetGlobalConfiguration("")
+	if err == nil {
+		socketList := make([]string, 0, 1)
+		runtimeAPIs := globalConf.RuntimeApis
+
+		if len(runtimeAPIs) != 0 {
+			for _, r := range runtimeAPIs {
+				socketList = append(socketList, *r.Address)
+			}
+			if err := runtimeClient.Init(socketList, "", 0); err != nil {
+				logerr("Error setting up runtime client, not using one")
+				return nil
+			}
+		} else {
+			logerr("Runtime API not configured, not using it")
+			runtimeClient = nil
+		}
+	} else {
+		logerr("Cannot read runtime API configuration, not using it")
+		runtimeClient = nil
+	}
+
+	d.HAProxy = &client_native.HAProxyClient{}
+	d.HAProxy.Init(confClient, runtimeClient)
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logerr(err.Error())
