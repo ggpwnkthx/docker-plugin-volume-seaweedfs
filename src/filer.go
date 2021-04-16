@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
-	"github.com/haproxytech/models"
+	models "github.com/haproxytech/models/v2"
 )
 
 type Filer struct {
@@ -84,7 +84,11 @@ func (f *Filer) init() error {
 		return errors.New("grpc unix socket not found")
 	}
 
-	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", 1)
+	err = f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", 1)
+	if err != nil {
+		logerr("create backend http")
+		return err
+	}
 	err = f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", 1)
 	if err != nil {
 		logerr("create server http")

@@ -9,9 +9,9 @@ import (
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/fsnotify/fsnotify"
-	client_native "github.com/haproxytech/client-native"
-	"github.com/haproxytech/client-native/configuration"
-	"github.com/haproxytech/client-native/runtime"
+	client_native "github.com/haproxytech/client-native/v2"
+	"github.com/haproxytech/client-native/v2/configuration"
+	runtime_api "github.com/haproxytech/client-native/v2/runtime"
 )
 
 type Driver struct {
@@ -34,21 +34,30 @@ func (d *Driver) init() error {
 	}
 
 	// Initialize HAProxy native client
-	hapcc, err := configuration.DefaultClient()
-	if err != nil {
-		logerr("Error setting up default configuration client, exiting...")
+	hapcc := &configuration.Client{}
+	hapcp := configuration.ClientParams{
+		ConfigurationFile:      "/etc/haproxy/haproxy.cfg",
+		Haproxy:                "/usr/sbin/haproxy",
+		UseValidation:          true,
+		PersistentTransactions: true,
+		TransactionDir:         "/etc/haproxy/transactions",
 	}
-	haprtc := &runtime.Client{}
-	_, globalConf, err := hapcc.GetGlobalConfiguration("")
+	err := hapcc.Init(hapcp)
+	if err != nil {
+		logerr("Error setting up default configuration client, exiting...", err.Error())
+	}
+	haprtc := &runtime_api.Client{}
+	version, globalConf, err := hapcc.GetGlobalConfiguration("")
+	logerr("GetGlobalConfiguration:", "version", strconv.FormatInt(version, 10))
 	if err == nil {
-		socketList := make([]string, 0, 1)
-		runtimeAPIs := globalConf.RuntimeApis
+		socketList := map[int]string{}
+		runtimeAPIs := globalConf.RuntimeAPIs
 
 		if len(runtimeAPIs) != 0 {
-			for _, r := range runtimeAPIs {
-				socketList = append(socketList, *r.Address)
+			for i, r := range runtimeAPIs {
+				socketList[i] = *r.Address
 			}
-			if err := haprtc.Init(socketList, "", 0); err != nil {
+			if err := haprtc.InitWithSockets(socketList); err != nil {
 				logerr("Error setting up runtime client, not using one")
 				return nil
 			}
@@ -63,12 +72,6 @@ func (d *Driver) init() error {
 
 	d.HAProxy = &client_native.HAProxyClient{}
 	d.HAProxy.Init(hapcc, haprtc)
-
-	i, s, err := d.HAProxy.Configuration.GetRawConfiguration("", 1)
-	if err != nil {
-		logerr(err.Error())
-	}
-	logerr(strconv.FormatInt(i, 10), s)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -248,9 +251,7 @@ func (d *Driver) removeDirWatch(dir string) {
 	if err != nil {
 		logerr(err.Error())
 	}
-	if _, found := d.Watcher.List[dir]; found {
-		delete(d.Watcher.List, dir)
-	}
+	delete(d.Watcher.List, dir)
 }
 func (d *Driver) addFoundSocket(alias string, socket string) {
 	d.Lock()
