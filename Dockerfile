@@ -17,11 +17,11 @@ COPY --from=ggpwnkthx/seaweedfs:latest /usr/bin/weed /usr/bin/weed
 # Get plugin driver binary compliled earlier
 COPY --from=builder /bin/docker-plugin-volume /bin/docker-plugin-volume
 # Get HAProxy binary and etc
-COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/sbin/haproxy /usr/sbin/haproxy
-COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/sbin/dataplaneapi /usr/sbin/dataplaneapi
+COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/sbin/haproxy /usr/local/sbin/haproxy
+COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/sbin/dataplaneapi /usr/local/sbin/dataplaneapi
 COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/etc/haproxy /usr/local/etc/haproxy
-COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg
-RUN mkdir -p /etc/haproxy/transactions
+COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/etc/haproxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+RUN mkdir -p /usr/local/etc/haproxy/transactions
 
 COPY ./entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
