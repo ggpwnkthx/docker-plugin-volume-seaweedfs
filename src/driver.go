@@ -41,11 +41,11 @@ func (d *Driver) init() error {
 	// Initialize HAProxy native client
 	hapcc := &configuration.Client{}
 	confParams := configuration.ClientParams{
-		ConfigurationFile:      "/usr/local/etc/haproxy/haproxy.cfg",
-		Haproxy:                "/usr/local/sbin/haproxy",
+		ConfigurationFile:      "/etc/haproxy/haproxy.cfg",
+		Haproxy:                "/usr/sbin/haproxy",
 		UseValidation:          true,
 		PersistentTransactions: true,
-		TransactionDir:         "/usr/local/etc/haproxy/transactions",
+		TransactionDir:         "/tmp/haproxy/transactions",
 	}
 	err := hapcc.Init(confParams)
 	if err != nil {
