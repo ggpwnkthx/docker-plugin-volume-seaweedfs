@@ -57,9 +57,7 @@ func (f *Filer) init() error {
 			Port:    &http_port,
 		},
 	}
-	if _, err := os.Stat(f.relays["http"].Server.Address); os.IsNotExist(err) {
-		return errors.New("http unix socket not found")
-	}
+
 	f.relays["grpc"] = &Relay{
 		Backend: &models.Backend{
 			Name: f.alias + "_grpc",
@@ -80,30 +78,35 @@ func (f *Filer) init() error {
 			Port:    &grpc_port,
 		},
 	}
-	if _, err := os.Stat(f.relays["grpc"].Server.Address); os.IsNotExist(err) {
-		return errors.New("grpc unix socket not found")
-	}
 
-	err = f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", 1)
+	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+	err = f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", version)
 	if err != nil {
 		logerr("create backend http")
 		return err
 	}
-	err = f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", 1)
+	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
+	err = f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", version)
 	if err != nil {
 		logerr("create server http")
 		return err
 	}
-	err = f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", 1)
+	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
+	err = f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", version)
 	if err != nil {
 		logerr("create frontend http")
 		return err
 	}
-	err = f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", 1)
+	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
+	err = f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", version)
 	if err != nil {
 		logerr("create bind http")
 		return err
 	}
+
+	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
+	_, s, _ := f.Driver.HAProxy.Configuration.GetRawConfiguration("", version)
+	logerr(s)
 
 	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
 	os.MkdirAll(f.Mountpoint, os.ModePerm)

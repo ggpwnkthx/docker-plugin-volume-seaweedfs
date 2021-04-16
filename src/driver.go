@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -34,13 +33,6 @@ func (d *Driver) init() error {
 		d.Volumes = map[string]*Volume{}
 	}
 
-	cmd := exec.Command("/usr/sbin/haproxy", "-v")
-	stdoutStderr, err := cmd.CombinedOutput()
-	logerr(string(stdoutStderr))
-	if err != nil {
-		return err
-	}
-
 	// Initialize HAProxy native client
 	hapcc := &configuration.Client{}
 	confParams := configuration.ClientParams{
@@ -50,7 +42,7 @@ func (d *Driver) init() error {
 		PersistentTransactions: true,
 		TransactionDir:         "/tmp/haproxy/transactions",
 	}
-	err = hapcc.Init(confParams)
+	err := hapcc.Init(confParams)
 	if err != nil {
 		logerr("Error setting up default configuration client, exiting...", err.Error())
 	}
