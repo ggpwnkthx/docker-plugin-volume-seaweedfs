@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+*.sh text
+*.go text
+*.mod text
+*.conf text
+*.cfg text
