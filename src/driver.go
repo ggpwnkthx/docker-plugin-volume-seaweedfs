@@ -34,7 +34,10 @@ func (d *Driver) init() error {
 		d.Volumes = map[string]*Volume{}
 	}
 
-	if err := exec.Command("/usr/local/sbin/haproxy", "-v").Run(); err != nil {
+	cmd := exec.Command("/usr/local/sbin/haproxy", "-v")
+	stdoutStderr, err := cmd.CombinedOutput()
+	logerr(string(stdoutStderr))
+	if err != nil {
 		return err
 	}
 
@@ -47,7 +50,7 @@ func (d *Driver) init() error {
 		PersistentTransactions: true,
 		TransactionDir:         "/tmp/haproxy/transactions",
 	}
-	err := hapcc.Init(confParams)
+	err = hapcc.Init(confParams)
 	if err != nil {
 		logerr("Error setting up default configuration client, exiting...", err.Error())
 	}
