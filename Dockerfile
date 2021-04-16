@@ -9,7 +9,7 @@ RUN go build -o /bin/docker-plugin-volume
 
 # Build runtime container image
 FROM alpine:3
-RUN apk update && apk add --no-cache fuse supervisor haproxy rsyslog
+RUN apk update && apk add --no-cache fuse supervisor haproxy
 COPY ./supervisord.conf /etc/supervisord.conf
 RUN mkdir -p /var/run/docker/plugins/seaweedfs
 # Get SeaweedFS binary
