@@ -34,7 +34,7 @@ func (d *Driver) init() error {
 		d.Volumes = map[string]*Volume{}
 	}
 
-	cmd := exec.Command("/usr/local/sbin/haproxy", "-v")
+	cmd := exec.Command("/usr/sbin/haproxy", "-v")
 	stdoutStderr, err := cmd.CombinedOutput()
 	logerr(string(stdoutStderr))
 	if err != nil {
