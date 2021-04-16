@@ -35,8 +35,6 @@ func (f *Filer) init() error {
 	grpc_port := http_port + 10000
 	logerr("initializing filer using port", strconv.FormatInt(http_port, 10))
 
-	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-
 	f.relays = map[string]*Relay{}
 	f.relays["http"] = &Relay{
 		Backend: &models.Backend{
@@ -58,10 +56,6 @@ func (f *Filer) init() error {
 			Port:    &http_port,
 		},
 	}
-	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", version)
-	f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", version)
-	f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", version)
-	f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", version)
 
 	f.relays["grpc"] = &Relay{
 		Backend: &models.Backend{
@@ -83,10 +77,20 @@ func (f *Filer) init() error {
 			Port:    &grpc_port,
 		},
 	}
-	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["grpc"].Backend, "", version)
-	f.Driver.HAProxy.Configuration.CreateServer(f.relays["grpc"].Backend.Name, f.relays["grpc"].Server, "", version)
-	f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["grpc"].Frontend, "", version)
-	f.Driver.HAProxy.Configuration.CreateBind(f.relays["grpc"].Frontend.Name, f.relays["grpc"].Bind, "", version)
+
+	err = f.InitializeRelays()
+	if err != nil {
+		return err
+	}
+	_, front, err := f.Driver.HAProxy.Configuration.GetFrontends("")
+	if err != nil {
+		return err
+	}
+	frontJSON, err := json.Marshal(front)
+	if err != nil {
+		return err
+	}
+	logerr(string(frontJSON))
 
 	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
 	os.MkdirAll(f.Mountpoint, os.ModePerm)
@@ -179,6 +183,28 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 	err = ioutil.WriteFile(path, data, 0644)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+func (f *Filer) InitializeRelays() error {
+	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+	for _, relay := range f.relays {
+		err := f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
+		if err != nil {
+			return err
+		}
+		err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
