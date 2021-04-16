@@ -35,7 +35,8 @@ func (f *Filer) init() error {
 	grpc_port := http_port + 10000
 	logerr("initializing filer using port", strconv.FormatInt(http_port, 10))
 
-	//tOut := int64(5)
+	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+
 	f.relays = map[string]*Relay{}
 	f.relays["http"] = &Relay{
 		Backend: &models.Backend{
@@ -57,6 +58,10 @@ func (f *Filer) init() error {
 			Port:    &http_port,
 		},
 	}
+	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", version)
+	f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", version)
+	f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", version)
+	f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", version)
 
 	f.relays["grpc"] = &Relay{
 		Backend: &models.Backend{
@@ -78,35 +83,10 @@ func (f *Filer) init() error {
 			Port:    &grpc_port,
 		},
 	}
-
-	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-	err = f.Driver.HAProxy.Configuration.CreateBackend(f.relays["http"].Backend, "", version)
-	if err != nil {
-		logerr("create backend http")
-		return err
-	}
-	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-	err = f.Driver.HAProxy.Configuration.CreateServer(f.relays["http"].Backend.Name, f.relays["http"].Server, "", version)
-	if err != nil {
-		logerr("create server http")
-		return err
-	}
-	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-	err = f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["http"].Frontend, "", version)
-	if err != nil {
-		logerr("create frontend http")
-		return err
-	}
-	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-	err = f.Driver.HAProxy.Configuration.CreateBind(f.relays["http"].Frontend.Name, f.relays["http"].Bind, "", version)
-	if err != nil {
-		logerr("create bind http")
-		return err
-	}
-
-	version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-	_, s, _ := f.Driver.HAProxy.Configuration.GetRawConfiguration("", version)
-	logerr(s)
+	f.Driver.HAProxy.Configuration.CreateBackend(f.relays["grpc"].Backend, "", version)
+	f.Driver.HAProxy.Configuration.CreateServer(f.relays["grpc"].Backend.Name, f.relays["grpc"].Server, "", version)
+	f.Driver.HAProxy.Configuration.CreateFrontend(f.relays["grpc"].Frontend, "", version)
+	f.Driver.HAProxy.Configuration.CreateBind(f.relays["grpc"].Frontend.Name, f.relays["grpc"].Bind, "", version)
 
 	f.Mountpoint = filepath.Join(volume.DefaultDockerRootDirectory, f.alias)
 	os.MkdirAll(f.Mountpoint, os.ModePerm)
