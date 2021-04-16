@@ -34,15 +34,7 @@ func (d *Driver) init() error {
 	}
 
 	// Initialize HAProxy native client
-	hapcc := &configuration.Client{}
-	hapcp := configuration.ClientParams{
-		ConfigurationFile:      "/etc/haproxy/haproxy.cfg",
-		Haproxy:                "/usr/sbin/haproxy",
-		UseValidation:          true,
-		PersistentTransactions: true,
-		TransactionDir:         "/etc/haproxy/transactions",
-	}
-	err := hapcc.Init(hapcp)
+	hapcc, err := configuration.DefaultClient()
 	if err != nil {
 		logerr("Error setting up default configuration client, exiting...", err.Error())
 	}
