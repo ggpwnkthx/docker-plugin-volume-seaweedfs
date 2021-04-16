@@ -52,7 +52,7 @@ func (f *Filer) init() error {
 		},
 		Bind: &models.Bind{
 			Name:    f.alias + "_http",
-			Address: "0.0.0.0",
+			Address: "localhost",
 			Port:    &http_port,
 		},
 	}
@@ -73,7 +73,7 @@ func (f *Filer) init() error {
 		},
 		Bind: &models.Bind{
 			Name:    f.alias + "_grpc",
-			Address: "0.0.0.0",
+			Address: "localhost",
 			Port:    &grpc_port,
 		},
 	}
