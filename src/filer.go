@@ -187,20 +187,23 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 	return nil
 }
 func (f *Filer) InitializeRelays() error {
-	version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
 	for _, relay := range f.relays {
+		version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
 		err := f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
 		if err != nil {
 			return err
 		}
+		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
 		err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
 		if err != nil {
 			return err
 		}
+		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
 		err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
 		if err != nil {
 			return err
 		}
+		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
 		err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
 		if err != nil {
 			return err
