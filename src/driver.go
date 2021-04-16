@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -31,6 +32,10 @@ func (d *Driver) init() error {
 	}
 	if d.Volumes == nil {
 		d.Volumes = map[string]*Volume{}
+	}
+
+	if err := exec.Command("/usr/local/sbin/haproxy", "-v").Run(); err != nil {
+		return err
 	}
 
 	// Initialize HAProxy native client
