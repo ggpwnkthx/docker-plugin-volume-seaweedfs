@@ -1,6 +1,6 @@
 #!/bin/sh
 if [ -d /var/lib/docker/plugins/seaweedfs/$1 ]; then
-    cat <<EOF >> /etc/haproxy/haproxy.cfg
+    cat <<EOF >> /usr/local/etc/haproxy/haproxy.cfg
 listen http_socket
     mode http
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/http.sock
@@ -10,6 +10,6 @@ listen grpc_socket
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock
     server grpc_filer filer:18888
 EOF
-    haproxy -f /etc/haproxy/haproxy.cfg
+    haproxy -f /usr/local/etc/haproxy/haproxy.cfg
 fi
 echo "/var/lib/docker/plugins/seaweedfs/$1 not found"
