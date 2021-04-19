@@ -60,25 +60,41 @@ func (d *Driver) ConfigureHAProxy() error {
 
 func (f *Filer) InitializeRelays() error {
 	for _, relay := range f.relays {
-		version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-		err := f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
+		_, _, err := f.Driver.HAProxy.Configuration.GetBackend(relay.Backend.Name, "")
 		if err != nil {
-			return err
+			logerr(err.Error())
+			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+			err = f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
+			if err != nil {
+				return err
+			}
 		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
+		_, _, err = f.Driver.HAProxy.Configuration.GetServer(relay.Server.Name, relay.Backend.Name, "")
 		if err != nil {
-			return err
+			logerr(err.Error())
+			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+			err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
+			if err != nil {
+				return err
+			}
 		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
+		_, _, err = f.Driver.HAProxy.Configuration.GetFrontend(relay.Frontend.Name, "")
 		if err != nil {
-			return err
+			logerr(err.Error())
+			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+			err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
+			if err != nil {
+				return err
+			}
 		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
+		_, _, err = f.Driver.HAProxy.Configuration.GetBind(relay.Bind.Name, relay.Frontend.Name, "")
 		if err != nil {
-			return err
+			logerr(err.Error())
+			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
+			err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
