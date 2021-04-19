@@ -50,6 +50,10 @@ func (f *Filer) init() error {
 			Port:    &http_port,
 		},
 	}
+	err = f.Driver.InitializeRelay(f.relays["http"])
+	if err != nil {
+		return err
+	}
 
 	f.relays["grpc"] = &Relay{
 		Backend: &models.Backend{
@@ -71,12 +75,12 @@ func (f *Filer) init() error {
 			Port:    &grpc_port,
 		},
 	}
-
-	err = f.InitializeRelays()
+	err = f.Driver.InitializeRelay(f.relays["grpc"])
 	if err != nil {
 		return err
 	}
-	stats := f.Driver.HAProxy.Runtime.GetStats()
+
+	stats := f.Driver.HAProxy.GetRuntime().GetStats()
 	if err != nil {
 		return err
 	}

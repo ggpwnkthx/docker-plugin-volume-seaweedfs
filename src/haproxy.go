@@ -58,48 +58,47 @@ func (d *Driver) ConfigureHAProxy() error {
 	return err
 }
 
-func (f *Filer) InitializeRelays() error {
-	for _, relay := range f.relays {
-		_, _, err := f.Driver.HAProxy.Configuration.GetBackend(relay.Backend.Name, "")
+func (d *Driver) InitializeRelay(relay *Relay) error {
+	config := d.HAProxy.GetConfiguration()
+	_, _, err := config.GetBackend(relay.Backend.Name, "")
+	if err != nil {
+		logerr(err.Error())
+		version, _ := config.GetVersion("")
+		err = config.CreateBackend(relay.Backend, "", version)
 		if err != nil {
-			logerr(err.Error())
-			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-			err = f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
-			if err != nil {
-				return err
-			}
-			logerr("created backend", relay.Backend.Name)
+			return err
 		}
-		_, _, err = f.Driver.HAProxy.Configuration.GetServer(relay.Server.Name, relay.Backend.Name, "")
+		logerr("created backend", relay.Backend.Name)
+	}
+	_, _, err = config.GetServer(relay.Server.Name, relay.Backend.Name, "")
+	if err != nil {
+		logerr(err.Error())
+		version, _ := config.GetVersion("")
+		err = config.CreateServer(relay.Backend.Name, relay.Server, "", version)
 		if err != nil {
-			logerr(err.Error())
-			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-			err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
-			if err != nil {
-				return err
-			}
-			logerr("created server", relay.Server.Name)
+			return err
 		}
-		_, _, err = f.Driver.HAProxy.Configuration.GetFrontend(relay.Frontend.Name, "")
+		logerr("created server", relay.Server.Name)
+	}
+	_, _, err = config.GetFrontend(relay.Frontend.Name, "")
+	if err != nil {
+		logerr(err.Error())
+		version, _ := config.GetVersion("")
+		err = config.CreateFrontend(relay.Frontend, "", version)
 		if err != nil {
-			logerr(err.Error())
-			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-			err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
-			if err != nil {
-				return err
-			}
-			logerr("created frontend", relay.Frontend.Name)
+			return err
 		}
-		_, _, err = f.Driver.HAProxy.Configuration.GetBind(relay.Bind.Name, relay.Frontend.Name, "")
+		logerr("created frontend", relay.Frontend.Name)
+	}
+	_, _, err = config.GetBind(relay.Bind.Name, relay.Frontend.Name, "")
+	if err != nil {
+		logerr(err.Error())
+		version, _ := config.GetVersion("")
+		err = config.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
 		if err != nil {
-			logerr(err.Error())
-			version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-			err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
-			if err != nil {
-				return err
-			}
-			logerr("created bind", relay.Bind.Name)
+			return err
 		}
+		logerr("created bind", relay.Bind.Name)
 	}
 	return nil
 }
