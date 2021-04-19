@@ -80,11 +80,11 @@ func (f *Filer) init() error {
 		return err
 	}
 
-	stats := f.Driver.HAProxy.GetRuntime().GetStats()
+	_, front, err := f.Driver.HAProxy.GetConfiguration().GetFrontends("")
 	if err != nil {
 		return err
 	}
-	frontJSON, err := json.Marshal(stats)
+	frontJSON, err := json.Marshal(front)
 	if err != nil {
 		return err
 	}
