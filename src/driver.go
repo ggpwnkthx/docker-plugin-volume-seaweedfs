@@ -134,11 +134,13 @@ func (d *Driver) removeFiler(f *Filer) {
 	delete(d.Filers, f.alias)
 }
 
+/*
 func (d *Driver) addVolume(v *Volume) {
 	d.Lock()
 	defer d.Unlock()
 	d.Volumes[v.Name] = v
 }
+*/
 func (d *Driver) deleteVolume(v *Volume) {
 	d.Lock()
 	defer d.Unlock()

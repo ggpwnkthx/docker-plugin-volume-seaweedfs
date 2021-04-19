@@ -68,6 +68,7 @@ func (f *Filer) InitializeRelays() error {
 			if err != nil {
 				return err
 			}
+			logerr("created backend", relay.Backend.Name)
 		}
 		_, _, err = f.Driver.HAProxy.Configuration.GetServer(relay.Server.Name, relay.Backend.Name, "")
 		if err != nil {
@@ -77,6 +78,7 @@ func (f *Filer) InitializeRelays() error {
 			if err != nil {
 				return err
 			}
+			logerr("created server", relay.Server.Name)
 		}
 		_, _, err = f.Driver.HAProxy.Configuration.GetFrontend(relay.Frontend.Name, "")
 		if err != nil {
@@ -86,6 +88,7 @@ func (f *Filer) InitializeRelays() error {
 			if err != nil {
 				return err
 			}
+			logerr("created frontend", relay.Frontend.Name)
 		}
 		_, _, err = f.Driver.HAProxy.Configuration.GetBind(relay.Bind.Name, relay.Frontend.Name, "")
 		if err != nil {
@@ -95,6 +98,7 @@ func (f *Filer) InitializeRelays() error {
 			if err != nil {
 				return err
 			}
+			logerr("created bind", relay.Bind.Name)
 		}
 	}
 	return nil
