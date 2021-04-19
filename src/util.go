@@ -3,7 +3,10 @@ package main
 import (
 	"bufio"
 	"errors"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/phayes/freeport"
@@ -35,6 +38,41 @@ func Contains(haystack []string, needle string) bool {
 	return false
 }
 
+func isFiler(alias string) bool {
+	http := filepath.Join(seaweedfsSockets, alias, "http.sock")
+	if _, err := os.Stat(http); os.IsNotExist(err) {
+		logerr("isFiler:", alias, "is missing http.sock")
+		return false
+	}
+	grpc := filepath.Join(seaweedfsSockets, alias, "grpc.sock")
+	if _, err := os.Stat(grpc); os.IsNotExist(err) {
+		logerr("isFiler:", alias, "is missing grpc.sock")
+		return false
+	}
+	logerr("isFiler:", alias, "is a filer")
+	return true
+}
+func availableFilers() ([]string, error) {
+	dirs := []string{}
+	items, err := ioutil.ReadDir(seaweedfsSockets)
+	if err != nil {
+		return []string{}, err
+	}
+	for _, i := range items {
+		if i.IsDir() {
+			logerr("availableFilers:", "found dir", i.Name())
+			dirs = append(dirs, i.Name())
+		}
+	}
+	filers := []string{}
+	for _, d := range dirs {
+		if isFiler(d) {
+			filers = append(filers, d)
+		}
+	}
+	return filers, nil
+}
+
 func SeaweedFSMount(options []string) *exec.Cmd {
 	logerr(options...)
 	cmd := exec.Command("/usr/bin/weed", options...)
@@ -53,6 +91,5 @@ func SeaweedFSMount(options []string) *exec.Cmd {
 			break
 		}
 	}
-	logerr("stablility reached")
 	return cmd
 }

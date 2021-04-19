@@ -4,14 +4,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/fsnotify/fsnotify"
 	client_native "github.com/haproxytech/client-native/v2"
-	"github.com/haproxytech/client-native/v2/configuration"
-	runtime_api "github.com/haproxytech/client-native/v2/runtime"
 )
 
 type Driver struct {
@@ -34,44 +31,10 @@ func (d *Driver) init() error {
 	}
 
 	// Initialize HAProxy native client
-	hapcc := &configuration.Client{}
-	confParams := configuration.ClientParams{
-		ConfigurationFile:      "/etc/haproxy/haproxy.cfg",
-		Haproxy:                "/usr/sbin/haproxy",
-		UseValidation:          true,
-		PersistentTransactions: true,
-		TransactionDir:         "/tmp/haproxy/transactions",
-	}
-	err := hapcc.Init(confParams)
+	err := d.ConfigureHAProxy()
 	if err != nil {
-		logerr("Error setting up default configuration client, exiting...", err.Error())
+		return err
 	}
-	haprtc := &runtime_api.Client{}
-	version, globalConf, err := hapcc.GetGlobalConfiguration("")
-	logerr("GetGlobalConfiguration:", "version", strconv.FormatInt(version, 10))
-	if err == nil {
-		socketList := map[int]string{}
-		runtimeAPIs := globalConf.RuntimeAPIs
-
-		if len(runtimeAPIs) != 0 {
-			for i, r := range runtimeAPIs {
-				socketList[i] = *r.Address
-			}
-			if err := haprtc.InitWithSockets(socketList); err != nil {
-				logerr("Error setting up runtime client, not using one")
-				return nil
-			}
-		} else {
-			logerr("Runtime API not configured, not using it")
-			haprtc = nil
-		}
-	} else {
-		logerr("Cannot read runtime API configuration, not using it")
-		haprtc = nil
-	}
-
-	d.HAProxy = &client_native.HAProxyClient{}
-	d.HAProxy.Init(hapcc, haprtc)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

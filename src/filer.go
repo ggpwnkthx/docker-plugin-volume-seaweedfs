@@ -20,12 +20,6 @@ type Filer struct {
 	Mountpoint string
 	weed       *exec.Cmd
 }
-type Relay struct {
-	Backend  *models.Backend
-	Server   *models.Server
-	Frontend *models.Frontend
-	Bind     *models.Bind
-}
 
 func (f *Filer) init() error {
 	http_port, err := getFreePort()
@@ -103,6 +97,7 @@ func (f *Filer) init() error {
 		"-volumeServerAccess=filerProxy",
 	}
 	f.weed = SeaweedFSMount(mOptions)
+	logerr(f.weed.ProcessState.String())
 
 	f.Driver.addFiler(f)
 	logerr("filer", f.alias, "initialized")
@@ -185,64 +180,4 @@ func (f *Filer) save(volumes []*volume.CreateRequest) error {
 		return err
 	}
 	return nil
-}
-func (f *Filer) InitializeRelays() error {
-	for _, relay := range f.relays {
-		version, _ := f.Driver.HAProxy.Configuration.GetVersion("")
-		err := f.Driver.HAProxy.Configuration.CreateBackend(relay.Backend, "", version)
-		if err != nil {
-			return err
-		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateServer(relay.Backend.Name, relay.Server, "", version)
-		if err != nil {
-			return err
-		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateFrontend(relay.Frontend, "", version)
-		if err != nil {
-			return err
-		}
-		version, _ = f.Driver.HAProxy.Configuration.GetVersion("")
-		err = f.Driver.HAProxy.Configuration.CreateBind(relay.Frontend.Name, relay.Bind, "", version)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func isFiler(alias string) bool {
-	http := filepath.Join(seaweedfsSockets, alias, "http.sock")
-	if _, err := os.Stat(http); os.IsNotExist(err) {
-		logerr("isFiler:", alias, "is missing http.sock")
-		return false
-	}
-	grpc := filepath.Join(seaweedfsSockets, alias, "grpc.sock")
-	if _, err := os.Stat(grpc); os.IsNotExist(err) {
-		logerr("isFiler:", alias, "is missing grpc.sock")
-		return false
-	}
-	logerr("isFiler:", alias, "is a filer")
-	return true
-}
-func availableFilers() ([]string, error) {
-	dirs := []string{}
-	items, err := ioutil.ReadDir(seaweedfsSockets)
-	if err != nil {
-		return []string{}, err
-	}
-	for _, i := range items {
-		if i.IsDir() {
-			logerr("availableFilers:", "found dir", i.Name())
-			dirs = append(dirs, i.Name())
-		}
-	}
-	filers := []string{}
-	for _, d := range dirs {
-		if isFiler(d) {
-			filers = append(filers, d)
-		}
-	}
-	return filers, nil
 }
