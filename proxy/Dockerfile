@@ -13,7 +13,7 @@ RUN ARCH="$(apk --print-arch)"; \
     curl -L $(curl -s https://api.github.com/repos/haproxytech/dataplaneapi/releases/latest | grep "browser_download_url.*$ASSET" | cut -d '"' -f 4) -o /tmp/$ASSET; \
     cd /tmp; \
     tar -zxvf $ASSET
-RUN mv /tmp/build/dataplaneapi /usr/local/sbin/dataplaneapi
+RUN mv /tmp/build/dataplaneapi /usr/sbin/dataplaneapi
 # Clean up
 RUN apk del curl tar
 RUN rm -r /tmp/*

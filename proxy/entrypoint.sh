@@ -1,6 +1,6 @@
 #!/bin/sh
 if [ -d /var/lib/docker/plugins/seaweedfs/$1 ]; then
-    cat <<EOF >> /usr/local/etc/haproxy/haproxy.cfg
+    cat <<EOF >> /etc/haproxy/haproxy.cfg
 backend http
     mode http
     server http filer:8888
