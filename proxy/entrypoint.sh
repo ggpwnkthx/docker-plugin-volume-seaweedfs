@@ -1,14 +1,20 @@
 #!/bin/sh
 if [ -d /var/lib/docker/plugins/seaweedfs/$1 ]; then
     cat <<EOF >> /usr/local/etc/haproxy/haproxy.cfg
-listen http_socket
+backend http
+    mode http
+    server http_filer filer:8888
+backend grpc
+    mode http
+    server http_filer filer:18888 ssl verify none apln h2
+frontend http
     mode http
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/http.sock
-    server http_filer filer:8888 check
-listen grpc_socket
-    mode tcp
-    bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock
-    server grpc_filer filer:18888
+    default_backend http
+frontend grpc
+    mode http
+    bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock apln h2
+    default_backend grpc
 EOF
     /usr/bin/supervisord -c /etc/supervisord.conf
 fi
