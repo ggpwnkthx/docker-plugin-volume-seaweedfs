@@ -74,7 +74,6 @@ func (f *Filer) init() error {
 			Name:    f.alias + "_grpc",
 			Address: "localhost",
 			Port:    &grpc_port,
-			Npn:     "spdy/2",
 			Alpn:    "h2",
 		},
 	}
