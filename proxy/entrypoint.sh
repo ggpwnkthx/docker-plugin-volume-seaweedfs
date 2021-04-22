@@ -10,6 +10,6 @@ listen grpc_socket
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock
     server grpc_filer filer:18888
 EOF
-    haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+    /usr/bin/supervisord -c /etc/supervisord.conf
 fi
 echo "/var/lib/docker/plugins/seaweedfs/$1 not found"

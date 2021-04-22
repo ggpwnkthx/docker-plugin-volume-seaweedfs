@@ -18,7 +18,7 @@ COPY --from=ggpwnkthx/seaweedfs:latest /usr/bin/weed /usr/bin/weed
 COPY --from=builder /bin/docker-plugin-volume /bin/docker-plugin-volume
 # Get HAProxy binary and etc
 COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/sbin/dataplaneapi /usr/sbin/dataplaneapi
-COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /usr/local/etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg
+COPY --from=ggpwnkthx/docker-plugin-volume-seaweedfs-filer-proxy /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg
 RUN mkdir -p /tmp/haproxy/transactions
 
 COPY ./entrypoint.sh /bin/entrypoint.sh
