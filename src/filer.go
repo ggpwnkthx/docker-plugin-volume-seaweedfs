@@ -58,15 +58,16 @@ func (f *Filer) init() error {
 	f.relays["grpc"] = &Relay{
 		Backend: &models.Backend{
 			Name: f.alias + "_grpc",
-			Mode: "tcp",
+			Mode: "http",
 		},
 		Server: &models.Server{
 			Name:    f.alias + "_grpc",
 			Address: filepath.Join(seaweedfsSockets, f.alias, "grpc.sock"),
+			Alpn:    "h2",
 		},
 		Frontend: &models.Frontend{
 			Name:           f.alias + "_grpc",
-			Mode:           "tcp",
+			Mode:           "http",
 			DefaultBackend: f.alias + "_grpc",
 		},
 		Bind: &models.Bind{
@@ -74,7 +75,7 @@ func (f *Filer) init() error {
 			Address: "localhost",
 			Port:    &grpc_port,
 			Npn:     "spdy/2",
-			Alpn:    "h2,http/1.1",
+			Alpn:    "h2",
 		},
 	}
 	err = f.Driver.InitializeRelay(f.relays["grpc"])
