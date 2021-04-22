@@ -3,10 +3,10 @@ if [ -d /var/lib/docker/plugins/seaweedfs/$1 ]; then
     cat <<EOF >> /usr/local/etc/haproxy/haproxy.cfg
 backend http
     mode http
-    server http_filer filer:8888
+    server http filer:8888
 backend grpc
     mode http
-    server http_filer filer:18888 ssl verify none apln h2
+    server grpc filer:18888 ssl verify none apln h2
 frontend http
     mode http
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/http.sock
