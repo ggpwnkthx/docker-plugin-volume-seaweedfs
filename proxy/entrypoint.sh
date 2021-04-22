@@ -16,6 +16,6 @@ frontend grpc
     bind unix@/var/lib/docker/plugins/seaweedfs/$1/grpc.sock alpn h2
     default_backend grpc
 EOF
-    /usr/bin/supervisord -c /etc/supervisord.conf
+    /usr/local/sbin/haproxy -f /etc/haproxy/haproxy.cfg
 fi
 echo "/var/lib/docker/plugins/seaweedfs/$1 not found"
